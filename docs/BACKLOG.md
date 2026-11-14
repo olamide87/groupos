@@ -5,8 +5,6 @@ Status: **planned** unless explicitly linked to implementation and passing check
 | ID | Priority | Deliverable | Acceptance evidence | Status |
 | --- | --- | --- | --- | --- |
 | GOS-001 | P0 | CI baseline and reproducible install | API tests, API typecheck, web build pass on PR | Verified complete |
-
-Verified evidence: `npm ci --no-audit --no-fund`, `npx tsc --noEmit -p apps/api/tsconfig.json`, `npm run test -w @groupos/api`, and `npm run build -w @groupos/web` all passed in the workspace on 2026-11-13.
 | GOS-002 | P0 | PostgreSQL + Prisma schema and migrations | Migrations and database integration tests | Planned |
 | GOS-003 | P0 | Organizer account authentication | Signup/login/logout/recovery, auth and rate-limit tests | Planned |
 | GOS-004 | P0 | Event CRUD with organizer authorization | Event API integration tests incl. cross-account denial | Planned |
@@ -21,8 +19,10 @@ Verified evidence: `npm ci --no-audit --no-fund`, `npx tsc --noEmit -p apps/api/
 | GOS-013 | P0 | Security and operational readiness | Security review, docs, staging smoke tests | Planned |
 | GOS-014 | P0 | Release acceptance | All DoD evidence linked, owner sign-off | Planned |
 
+Verified evidence: [PR #2](https://github.com/olamide87/groupos/pull/2), commit `9e9062810be81bfeff38c98609b7e45ca7b85760`, and [successful GitHub Actions run](https://github.com/olamide87/groupos/actions/runs/43554713588). The Node.js 22 CI job passed `npm ci --no-audit --no-fund`, `npx tsc --noEmit -p apps/api/tsconfig.json`, `npm run test -w @groupos/api`, and `npm run build -w @groupos/web`.
+
 ## Next implementation task
-**GOS-001:** Establish reproducible dependency installation and make CI green. Then begin GOS-002.
+**GOS-002:** PostgreSQL and Prisma database foundation. Begin implementation after GOS-001 integration and local verification are reported.
 
 ## Agent operating constraints
 - GroupOS is standalone; do not introduce AgentBook imports, authentication dependencies, or required services.
