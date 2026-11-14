@@ -15,7 +15,8 @@ GroupOS is independent of AgentBook. No AgentBook services, accounts, or credent
 
 - `apps/api`: Express and TypeScript REST API; health endpoint implemented
 - `apps/web`: Next.js and React frontend; landing page implemented
-- PostgreSQL/Prisma, authentication, background jobs, and AI integration are planned but **not yet implemented**.
+- PostgreSQL/Prisma schema, versioned migrations and a managed API client provide the persistence foundation; see [database design](database.md).
+- Authentication, domain endpoints, background jobs and AI integration are planned but **not yet implemented**.
 
 ## Security principles
 

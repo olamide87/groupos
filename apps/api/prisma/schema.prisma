@@ -1,0 +1,225 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EventStatus {
+  DRAFT
+  OPEN
+  FINALIZED
+  CANCELLED
+}
+
+enum RsvpResponse {
+  YES
+  NO
+  MAYBE
+}
+
+enum PollKind {
+  DATE
+  BUDGET
+  ACTIVITY
+}
+
+enum PollStatus {
+  OPEN
+  CLOSED
+}
+
+enum RecommendationSource {
+  RULE
+  AI
+}
+
+enum RecommendationStatus {
+  PENDING
+  APPROVED
+  DISMISSED
+}
+
+enum ConsentStatus {
+  OPTED_IN
+  OPTED_OUT
+}
+
+enum NotificationChannel {
+  EMAIL
+}
+
+model User {
+  id        String       @id @default(uuid()) @db.Uuid
+  email     String       @unique @db.VarChar(254)
+  name      String       @db.VarChar(120)
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime     @updatedAt @db.Timestamptz(3)
+  events    Event[]
+  audit     AuditEntry[]
+}
+
+model Event {
+  id              String            @id @default(uuid()) @db.Uuid
+  organizerId     String            @db.Uuid
+  organizer       User              @relation(fields: [organizerId], references: [id], onDelete: Restrict)
+  title           String            @db.VarChar(200)
+  description     String?
+  location        String?           @db.VarChar(300)
+  startsAt        DateTime?         @db.Timestamptz(3)
+  endsAt          DateTime?         @db.Timestamptz(3)
+  timeZone        String            @default("UTC") @db.VarChar(80)
+  status          EventStatus       @default(DRAFT)
+  createdAt       DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime          @updatedAt @db.Timestamptz(3)
+  participants    Participant[]
+  invitations     InvitationToken[]
+  polls           Poll[]
+  recommendations Recommendation[]
+  audit           AuditEntry[]
+
+  @@index([organizerId, status])
+}
+
+model Participant {
+  id          String                @id @default(uuid()) @db.Uuid
+  eventId     String                @db.Uuid
+  event       Event                 @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  displayName String                @db.VarChar(120)
+  email       String?               @db.VarChar(254)
+  createdAt   DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime              @updatedAt @db.Timestamptz(3)
+  invitations InvitationToken[]
+  rsvp        Rsvp?
+  rsvpHistory RsvpHistory[]
+  votes       Vote[]
+  consents    NotificationConsent[]
+
+  @@unique([id, eventId])
+  @@unique([eventId, email])
+}
+
+model InvitationToken {
+  id            String       @id @default(uuid()) @db.Uuid
+  eventId       String       @db.Uuid
+  event         Event        @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  participantId String?      @db.Uuid
+  participant   Participant? @relation(fields: [participantId, eventId], references: [id, eventId], onDelete: Restrict)
+  tokenHash     String       @unique @db.VarChar(64)
+  expiresAt     DateTime     @db.Timestamptz(3)
+  revokedAt     DateTime?    @db.Timestamptz(3)
+  createdAt     DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([eventId, expiresAt])
+  @@index([participantId, eventId])
+}
+
+model Rsvp {
+  participantId String       @id @db.Uuid
+  participant   Participant  @relation(fields: [participantId], references: [id], onDelete: Restrict)
+  response      RsvpResponse
+  createdAt     DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime     @updatedAt @db.Timestamptz(3)
+}
+
+model RsvpHistory {
+  id            String       @id @default(uuid()) @db.Uuid
+  participantId String       @db.Uuid
+  participant   Participant  @relation(fields: [participantId], references: [id], onDelete: Restrict)
+  response      RsvpResponse
+  recordedAt    DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([participantId, recordedAt])
+}
+
+model Poll {
+  id        String       @id @default(uuid()) @db.Uuid
+  eventId   String       @db.Uuid
+  event     Event        @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  question  String       @db.VarChar(300)
+  kind      PollKind
+  status    PollStatus   @default(OPEN)
+  closesAt  DateTime?    @db.Timestamptz(3)
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime     @updatedAt @db.Timestamptz(3)
+  options   PollOption[]
+  votes     Vote[]
+
+  @@unique([id, eventId])
+  @@index([eventId, status])
+}
+
+model PollOption {
+  id        String   @id @default(uuid()) @db.Uuid
+  pollId    String   @db.Uuid
+  poll      Poll     @relation(fields: [pollId], references: [id], onDelete: Restrict)
+  label     String   @db.VarChar(300)
+  position  Int
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  votes     Vote[]
+
+  @@unique([id, pollId])
+  @@unique([pollId, position])
+}
+
+model Vote {
+  id            String      @id @default(uuid()) @db.Uuid
+  eventId       String      @db.Uuid
+  pollId        String      @db.Uuid
+  poll          Poll        @relation(fields: [pollId, eventId], references: [id, eventId], onDelete: Restrict)
+  optionId      String      @db.Uuid
+  option        PollOption  @relation(fields: [optionId, pollId], references: [id, pollId], onDelete: Restrict)
+  participantId String      @db.Uuid
+  participant   Participant @relation(fields: [participantId, eventId], references: [id, eventId], onDelete: Restrict)
+  createdAt     DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @db.Timestamptz(3)
+
+  @@unique([pollId, participantId])
+  @@index([participantId, eventId])
+  @@index([optionId, pollId])
+}
+
+model Recommendation {
+  id        String               @id @default(uuid()) @db.Uuid
+  eventId   String               @db.Uuid
+  event     Event                @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  source    RecommendationSource
+  status    RecommendationStatus @default(PENDING)
+  summary   String
+  rationale String
+  createdAt DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime             @updatedAt @db.Timestamptz(3)
+
+  @@index([eventId, status])
+}
+
+model NotificationConsent {
+  id            String              @id @default(uuid()) @db.Uuid
+  participantId String              @db.Uuid
+  participant   Participant         @relation(fields: [participantId], references: [id], onDelete: Restrict)
+  channel       NotificationChannel @default(EMAIL)
+  status        ConsentStatus       @default(OPTED_OUT)
+  source        String              @db.VarChar(100)
+  createdAt     DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime            @updatedAt @db.Timestamptz(3)
+
+  @@unique([participantId, channel])
+}
+
+model AuditEntry {
+  id          String   @id @default(uuid()) @db.Uuid
+  eventId     String?  @db.Uuid
+  event       Event?   @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  actorUserId String?  @db.Uuid
+  actor       User?    @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  action      String   @db.VarChar(100)
+  entityType  String   @db.VarChar(80)
+  entityId    String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([eventId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([entityType, entityId])
+}

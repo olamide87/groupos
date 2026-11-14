@@ -1,0 +1,2 @@
+# Keep migration checksums consistent across Windows development and Linux CI.
+apps/api/prisma/migrations/** text eol=lf
