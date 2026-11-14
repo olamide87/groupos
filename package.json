@@ -1,0 +1,13 @@
+{
+  "name": "groupos",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @groupos/api",
+    "dev:web": "npm run dev -w @groupos/web",
+    "test": "npm run test -w @groupos/api"
+  }
+}
