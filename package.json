@@ -5,6 +5,9 @@
   "workspaces": [
     "apps/*"
   ],
+  "overrides": {
+    "deepmerge-ts": "8.0.0"
+  },
   "scripts": {
     "dev:api": "npm run dev -w @groupos/api",
     "dev:web": "npm run dev -w @groupos/web",
