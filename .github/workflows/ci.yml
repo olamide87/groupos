@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, feat/standalone-foundation]
   pull_request:
-    branches: [main]
+    branches: [main, feat/standalone-foundation]
   workflow_dispatch:
 
 permissions:
@@ -26,8 +26,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
       - name: Install workspace dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Typecheck API
         run: npx tsc --noEmit -p apps/api/tsconfig.json
       - name: Test API

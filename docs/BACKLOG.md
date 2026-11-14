@@ -4,7 +4,9 @@ Status: **planned** unless explicitly linked to implementation and passing check
 
 | ID | Priority | Deliverable | Acceptance evidence | Status |
 | --- | --- | --- | --- | --- |
-| GOS-001 | P0 | CI baseline and reproducible install | API tests, API typecheck, web build pass on PR | In progress |
+| GOS-001 | P0 | CI baseline and reproducible install | API tests, API typecheck, web build pass on PR | Verified complete |
+
+Verified evidence: `npm ci --no-audit --no-fund`, `npx tsc --noEmit -p apps/api/tsconfig.json`, `npm run test -w @groupos/api`, and `npm run build -w @groupos/web` all passed in the workspace on 2026-11-13.
 | GOS-002 | P0 | PostgreSQL + Prisma schema and migrations | Migrations and database integration tests | Planned |
 | GOS-003 | P0 | Organizer account authentication | Signup/login/logout/recovery, auth and rate-limit tests | Planned |
 | GOS-004 | P0 | Event CRUD with organizer authorization | Event API integration tests incl. cross-account denial | Planned |
