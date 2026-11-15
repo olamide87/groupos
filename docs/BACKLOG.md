@@ -8,7 +8,7 @@ Status: **planned** unless explicitly linked to implementation and passing check
 | GOS-002 | P0 | PostgreSQL + Prisma schema and migrations | [PR #3](https://github.com/olamide87/groupos/pull/3), [post-merge CI](https://github.com/olamide87/groupos/actions/runs/43561329745), [database design](database.md) | Integrated and verified |
 | GOS-003 | P0 | Organizer account authentication | [PR #4](https://github.com/olamide87/groupos/pull/4), [passing CI](https://github.com/olamide87/groupos/actions/runs/43753618250), [authentication](authentication.md) | Integrated and verified; release blockers open |
 | GOS-004 | P0 | Event CRUD with organizer authorization | [PR #5](https://github.com/olamide87/groupos/pull/5), [post-merge CI](https://github.com/olamide87/groupos/actions/runs/43758042982), [event API](events.md) | Integrated and verified |
-| GOS-005 | P0 | Secure participant invitations | [Invitation contracts](invitations.md), expiry/revocation/replay/concurrency tests | In progress |
+| GOS-005 | P0 | Secure participant invitations | [PR #6](https://github.com/olamide87/groupos/pull/6), [passing CI](https://github.com/olamide87/groupos/actions/runs/43765379992), [invitation contracts](invitations.md) | In review; merge approval required |
 | GOS-006 | P0 | Participant RSVP and response history | API and UI tests, duplicate response behavior | Planned |
 | GOS-007 | P0 | Date/budget/activity polls | Poll creation, voting, closing and authorization tests | Planned |
 | GOS-008 | P0 | Organizer dashboard | End-to-end pending/confirmed participation view | Planned |
@@ -22,7 +22,7 @@ Status: **planned** unless explicitly linked to implementation and passing check
 Verified evidence: [PR #2](https://github.com/olamide87/groupos/pull/2), commit `9e9062810be81bfeff38c98609b7e45ca7b85760`, and [successful GitHub Actions run](https://github.com/olamide87/groupos/actions/runs/43554713588). The Node.js 22 CI job passed `npm ci --no-audit --no-fund`, `npx tsc --noEmit -p apps/api/tsconfig.json`, `npm run test -w @groupos/api`, and `npm run build -w @groupos/web`.
 
 ## Next implementation task
-**GOS-005:** Verify secure participant invitations on a feature branch; explicit approval is required before merging. Resolve the documented security release blockers before release.
+**GOS-005:** Review PR #6; explicit approval is required before merging. Resolve the documented security release blockers before release.
 
 GOS-004 integration (2026-11-15): approved squash merge `ccd35634d5a0b5e262f93292a5a8783c015cc025`. The local development branch was synchronized and passed installation, Prisma validation/generation, fresh/upgrade/repeat migrations and empty-drift checks, API typecheck, 11 API tests, 35 database/authentication/event integration tests, and frontend production build (all exit 0). [Post-merge push CI passed](https://github.com/olamide87/groupos/actions/runs/43758042982). Security and production-readiness blockers remain unresolved. Earlier review notes below are historical.
 
@@ -45,6 +45,8 @@ GOS-004 local verification (2026-11-15, Node.js 22.23.5): installation, Prisma v
 GOS-004 PR verification: [CI run](https://github.com/olamide87/groupos/actions/runs/43755102110) passed every required step on implementation commit `98daff781505b554cec5d4cb7887065fdf129459`, including clean `npm ci`, Prisma, API typecheck/tests, all database/authentication/event integration tests and frontend production build. Local disposable database cleanup was confirmed and the temporary server stopped. Human review and merge approval remain pending; security release blockers are unchanged.
 
 GOS-005 local verification (2026-11-15, Node.js 22.23.5): installation, Prisma validation/generation, TypeScript, 11 API tests, 47 database/authentication/event/invitation integration tests (12 new invitation tests), migration upgrade/repeat/empty-drift checks and frontend production build all exited 0. The generated additive migration preserved a legacy participant and invitation. An HTTP smoke through the production frontend verified invitation page security headers, issuance, acceptance, scoped read, replay rejection and revocation. It used a disposable database and synthetic participant; no messages were sent. Browser-rendered interaction remains unverified. Audit was rerun: the same 3 affected packages remain (Zod/PostCSS high, Next.js moderate, 0 critical), exit 1; no dependencies were added. See [contracts and security boundaries](invitations.md). Final PR CI and explicit merge approval remain required; GOS-005 is not marked complete.
+
+GOS-005 PR verification: [CI passed](https://github.com/olamide87/groupos/actions/runs/43765379992) for implementation commit `62a5372b43ad8115d66efa1c70b4e532238f0af7`: clean `npm ci`, Prisma validation/generation, TypeScript, API and database/authentication/event/invitation tests, and frontend build. All local disposable databases were confirmed removed and the temporary PostgreSQL server stopped. Final-head evidence is maintained on [PR #6](https://github.com/olamide87/groupos/pull/6). Human review/merge approval and the recorded security release blockers remain open.
 
 ## Agent operating constraints
 

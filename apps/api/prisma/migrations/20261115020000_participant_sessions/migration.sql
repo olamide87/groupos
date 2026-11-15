@@ -19,4 +19,3 @@ CREATE INDEX "ParticipantSession_expiresAt_idx" ON "ParticipantSession"("expires
 
 -- AddForeignKey
 ALTER TABLE "ParticipantSession" ADD CONSTRAINT "ParticipantSession_invitationId_fkey" FOREIGN KEY ("invitationId") REFERENCES "InvitationToken"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
