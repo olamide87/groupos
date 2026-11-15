@@ -7,7 +7,7 @@ Status: **planned** unless explicitly linked to implementation and passing check
 | GOS-001 | P0 | CI baseline and reproducible install | API tests, API typecheck, web build pass on PR | Verified complete |
 | GOS-002 | P0 | PostgreSQL + Prisma schema and migrations | [PR #3](https://github.com/olamide87/groupos/pull/3), [post-merge CI](https://github.com/olamide87/groupos/actions/runs/43561329745), [database design](database.md) | Integrated and verified |
 | GOS-003 | P0 | Organizer account authentication | [PR #4](https://github.com/olamide87/groupos/pull/4), [passing CI](https://github.com/olamide87/groupos/actions/runs/43753618250), [authentication](authentication.md) | Integrated and verified; release blockers open |
-| GOS-004 | P0 | Event CRUD with organizer authorization | [Event API](events.md), 8 event integration tests incl. cross-account denial | In progress; final CI pending |
+| GOS-004 | P0 | Event CRUD with organizer authorization | [PR #5](https://github.com/olamide87/groupos/pull/5), [passing CI](https://github.com/olamide87/groupos/actions/runs/43755102110), [event API](events.md) | In review; merge approval required |
 | GOS-005 | P0 | Secure participant invitations | Expiring/revocable tokens and token security tests | Planned |
 | GOS-006 | P0 | Participant RSVP and response history | API and UI tests, duplicate response behavior | Planned |
 | GOS-007 | P0 | Date/budget/activity polls | Poll creation, voting, closing and authorization tests | Planned |
@@ -22,7 +22,7 @@ Status: **planned** unless explicitly linked to implementation and passing check
 Verified evidence: [PR #2](https://github.com/olamide87/groupos/pull/2), commit `9e9062810be81bfeff38c98609b7e45ca7b85760`, and [successful GitHub Actions run](https://github.com/olamide87/groupos/actions/runs/43554713588). The Node.js 22 CI job passed `npm ci --no-audit --no-fund`, `npx tsc --noEmit -p apps/api/tsconfig.json`, `npm run test -w @groupos/api`, and `npm run build -w @groupos/web`.
 
 ## Next implementation task
-**GOS-004:** Implement organizer-owned event CRUD on a feature branch. Resolve the documented security release blockers before release.
+**GOS-004:** Review PR #5 and obtain explicit approval before merge. Resolve the documented security release blockers before release.
 
 GOS-003 integration (2026-11-15): approved squash merge `0728fe0f08e071e0a18c36fe98bbce583ac83cdf`. The synchronized development branch passed clean `npm ci`, Prisma validation/generation, fresh/upgrade/repeat migration and drift checks, API typecheck, 11 API tests, 27 database/authentication integration tests, and frontend production build (all exit 0). Dependency and production-readiness release blockers remain unresolved. Historical pre-integration review notes below record the earlier state.
 
@@ -41,6 +41,8 @@ GOS-003 security review (2026-11-15): corrected recovery delivery of tokens that
 GOS-004 local verification (2026-11-15, Node.js 22.23.5): installation, Prisma validation/generation, API TypeScript checks, 11 API tests, 35 database/authentication/event tests (including 8 new event tests), fresh/upgrade/repeat migration and empty-drift checks, and frontend production build all exited 0. The [event API](events.md) supports creation, owner-scoped listing/viewing/updating and idempotent cancellation, with shared CSRF protection, transactional audit records, invitation revocation and concurrency tests. No schema or dependency changes were introduced. Final PR CI and human review remain required; GOS-004 is not marked complete. The unresolved Zod/PostCSS/Next.js advisories, production recovery/proxy configuration and browser UI verification concerns remain unchanged.
 
 ## Agent operating constraints
+
+GOS-004 PR verification: [CI run](https://github.com/olamide87/groupos/actions/runs/43755102110) passed every required step on implementation commit `98daff781505b554cec5d4cb7887065fdf129459`, including clean `npm ci`, Prisma, API typecheck/tests, all database/authentication/event integration tests and frontend production build. Local disposable database cleanup was confirmed and the temporary server stopped. Human review and merge approval remain pending; security release blockers are unchanged.
 
 - GroupOS is standalone; do not introduce AgentBook imports, authentication dependencies, or required services.
 - Never push secrets, run destructive database migrations, contact real invitees, incur paid-service charges, merge to main, or deploy production without explicit approval.
