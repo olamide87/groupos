@@ -48,14 +48,18 @@ try {
     try {
       const owner = randomUUID();
       await legacy.query('INSERT INTO "User" (id,email,name,"updatedAt") VALUES ($1,$2,$3,NOW())', [owner, `legacy-${name}@example.test`, 'Legacy organizer']);
-      await legacy.query('INSERT INTO "Event" (id,"organizerId",title,"updatedAt") VALUES ($1,$2,$3,NOW())', [randomUUID(), owner, 'Pre-auth event']);
+      const eventId = randomUUID(); const participantId = randomUUID();
+      await legacy.query('INSERT INTO "Event" (id,"organizerId",title,"updatedAt") VALUES ($1,$2,$3,NOW())', [eventId, owner, 'Pre-auth event']);
+      await legacy.query('INSERT INTO "Participant" (id,"eventId","displayName","updatedAt") VALUES ($1,$2,$3,NOW())', [participantId, eventId, 'Legacy participant']);
+      await legacy.query('INSERT INTO "InvitationToken" (id,"eventId","participantId","tokenHash","expiresAt") VALUES ($1,$2,$3,$4,NOW()+INTERVAL \'1 day\')',
+        [randomUUID(), eventId, participantId, randomUUID().replaceAll('-', '') + randomUUID().replaceAll('-', '')]);
     } finally { await legacy.end(); }
   } finally { await rm(baseline, { recursive: true, force: true }); }
   run([prisma, 'migrate', 'deploy']);
   // A second deploy must be a no-op, not a reset or a duplicate migration.
   run([prisma, 'migrate', 'deploy']);
   run([prisma, 'migrate', 'diff', '--from-url', url.toString(), '--to-schema-datamodel', 'prisma/schema.prisma', '--exit-code']);
-  run(['--import', 'tsx', '--test', '--test-concurrency=1', 'test/database.integration.ts', 'test/auth.integration.ts', 'test/events.integration.ts']);
+  run(['--import', 'tsx', '--test', '--test-concurrency=1', 'test/database.integration.ts', 'test/auth.integration.ts', 'test/events.integration.ts', 'test/invitations.integration.ts']);
 } finally {
   try {
     if (created) await admin.query(`DROP DATABASE "${name}" WITH (FORCE)`);

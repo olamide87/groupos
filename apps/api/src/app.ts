@@ -3,6 +3,7 @@ import cors from 'cors';
 import { createAuthRouter, type AuthOptions } from './auth/routes.js';
 import { AuthError, readAuthSettings } from './auth/security.js';
 import { createEventsRouter } from './events.js';
+import { createOrganizerInvitationsRouter, createParticipantRouter } from './invitations.js';
 
 export function createApp(options: AuthOptions = {}) {
   const app = express();
@@ -17,7 +18,8 @@ export function createApp(options: AuthOptions = {}) {
   app.use((_req, res, next) => { res.set('X-Content-Type-Options', 'nosniff'); next(); });
   app.use('/api/v1/auth', createAuthRouter(options));
 
-  app.use('/api/v1/events', createEventsRouter(options));
+  app.use('/api/v1/events', createOrganizerInvitationsRouter(options), createEventsRouter(options));
+  app.use('/api/v1/participant', createParticipantRouter(options));
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', service: 'groupos-api' });

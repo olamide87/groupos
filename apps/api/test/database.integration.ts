@@ -26,15 +26,18 @@ const rejectsCode = (promise: Promise<unknown>, code: string) => assert.rejects(
 test('migration chain applies once, preserves pre-auth data and creates all domain tables', async () => {
   const rows = await db.$queryRaw<Array<{ migration_name: string; finished_at: Date | null }>>`
     SELECT migration_name, finished_at FROM "_prisma_migrations" WHERE rolled_back_at IS NULL`;
-  assert.deepEqual(rows.map(row => row.migration_name).sort(), ['20261114000000_initial', '20261114010000_organizer_auth']);
+  assert.deepEqual(rows.map(row => row.migration_name).sort(), ['20261114000000_initial', '20261114010000_organizer_auth', '20261115020000_participant_sessions']);
   assert.ok(rows.every(row => row.finished_at));
   const legacy = await db.user.findFirstOrThrow({ where: { email: { startsWith: 'legacy-groupos_test_' } }, include: { events: true } });
   assert.equal(legacy.passwordHash, null);
   assert.equal(legacy.authVersion, 0);
   assert.equal(legacy.events[0].title, 'Pre-auth event');
+  const legacyInvitation = await db.invitationToken.findFirstOrThrow({ where: { eventId: legacy.events[0].id } });
+  assert.equal(legacyInvitation.acceptedAt, null);
+  assert.equal(await db.participantSession.count({ where: { invitationId: legacyInvitation.id } }), 0);
   for (const model of [db.user, db.event, db.participant, db.invitationToken, db.rsvp,
     db.rsvpHistory, db.poll, db.pollOption, db.vote, db.recommendation, db.notificationConsent, db.auditEntry,
-    db.authSession, db.passwordReset, db.recoveryMessage, db.authRateLimit]) {
+    db.authSession, db.passwordReset, db.recoveryMessage, db.authRateLimit, db.participantSession]) {
     assert.equal(typeof await (model.count as () => Promise<number>)(), 'number');
   }
 });
