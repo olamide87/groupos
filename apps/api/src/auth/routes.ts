@@ -5,6 +5,7 @@ import { getDatabase } from '../database.js';
 import { AuthError, emailAddress, encryptRecovery, hashPassword, hashToken, newToken, passwordInput,
   readAuthSettings, validToken, verifyPassword, type AuthSettings } from './security.js';
 import { consumeRateLimit, defaultPolicies, type RatePolicy } from './rate-limit.js';
+import { requireSameOrigin } from './csrf.js';
 
 export interface AuthOptions {
   database?: () => PrismaClient;
@@ -47,17 +48,7 @@ export function createAuthRouter(options: AuthOptions = {}): Router {
   const settings = options.settings ?? readAuthSettings;
   const policies = options.policies ?? defaultPolicies;
   router.use((_req, res, next) => { res.set('Cache-Control', 'no-store'); res.set('Referrer-Policy', 'no-referrer'); next(); });
-  router.use((req, _res, next) => {
-    if (req.method === 'GET' || req.method === 'HEAD') return next();
-    try {
-      // Strict Origin + custom header + JSON prevents login/logout CSRF, including sibling sites.
-      if (req.get('origin') !== settings().origin || req.get('x-groupos-request') !== '1' || !req.is('application/json')) {
-        throw new AuthError(403, 'Request origin or content type is not allowed');
-      }
-      if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) throw new AuthError(400, 'A JSON object is required');
-      next();
-    } catch (error) { next(error); }
-  });
+  router.use(requireSameOrigin(settings));
   const action = (name: string, handler: (req: Request, res: Response, db: PrismaClient, config: AuthSettings) => Promise<void>) =>
     router.post(`/${name}`, (req, res, next) => {
       (async () => {

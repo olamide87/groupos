@@ -1,8 +1,8 @@
 import express, { type ErrorRequestHandler } from 'express';
 import cors from 'cors';
-import { requireOrganizer, createAuthRouter, type AuthOptions } from './auth/routes.js';
+import { createAuthRouter, type AuthOptions } from './auth/routes.js';
 import { AuthError, readAuthSettings } from './auth/security.js';
-import { getDatabase } from './database.js';
+import { createEventsRouter } from './events.js';
 
 export function createApp(options: AuthOptions = {}) {
   const app = express();
@@ -12,24 +12,12 @@ export function createApp(options: AuthOptions = {}) {
     if (!origin) return callback(null, false);
     try { callback(null, origin === (options.settings ?? readAuthSettings)().origin); }
     catch { callback(null, false); }
-  }, credentials: true, allowedHeaders: ['Content-Type', 'X-GroupOS-Request'], methods: ['GET', 'POST'] }));
+  }, credentials: true, allowedHeaders: ['Content-Type', 'X-GroupOS-Request'], methods: ['GET', 'POST', 'PATCH'] }));
   app.use(express.json({ limit: '8kb', strict: true }));
   app.use((_req, res, next) => { res.set('X-Content-Type-Options', 'nosniff'); next(); });
   app.use('/api/v1/auth', createAuthRouter(options));
 
-  // A read-only organizer route exercises the ownership boundary before event CRUD.
-  app.get('/api/v1/events/:eventId', requireOrganizer(options), (req, res, next) => {
-    (async () => {
-      res.set('Cache-Control', 'no-store');
-      const db = (options.database ?? getDatabase)();
-      const user = res.locals.organizer;
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.eventId)) throw new AuthError(404, 'Event not found');
-      const event = await db.event.findFirst({ where: { id: req.params.eventId, organizerId: user.id },
-        select: { id: true, title: true, description: true, location: true, startsAt: true, endsAt: true, timeZone: true, status: true } });
-      if (!event) throw new AuthError(404, 'Event not found');
-      res.json({ event });
-    })().catch(next);
-  });
+  app.use('/api/v1/events', createEventsRouter(options));
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', service: 'groupos-api' });

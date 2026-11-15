@@ -6,8 +6,8 @@ Status: **planned** unless explicitly linked to implementation and passing check
 | --- | --- | --- | --- | --- |
 | GOS-001 | P0 | CI baseline and reproducible install | API tests, API typecheck, web build pass on PR | Verified complete |
 | GOS-002 | P0 | PostgreSQL + Prisma schema and migrations | [PR #3](https://github.com/olamide87/groupos/pull/3), [post-merge CI](https://github.com/olamide87/groupos/actions/runs/43561329745), [database design](database.md) | Integrated and verified |
-| GOS-003 | P0 | Organizer account authentication | [PR #4](https://github.com/olamide87/groupos/pull/4), [passing CI](https://github.com/olamide87/groupos/actions/runs/43674381892), [authentication](authentication.md) | In review; release blockers open |
-| GOS-004 | P0 | Event CRUD with organizer authorization | Event API integration tests incl. cross-account denial | Planned |
+| GOS-003 | P0 | Organizer account authentication | [PR #4](https://github.com/olamide87/groupos/pull/4), [passing CI](https://github.com/olamide87/groupos/actions/runs/43753618250), [authentication](authentication.md) | Integrated and verified; release blockers open |
+| GOS-004 | P0 | Event CRUD with organizer authorization | [Event API](events.md), 8 event integration tests incl. cross-account denial | In progress; final CI pending |
 | GOS-005 | P0 | Secure participant invitations | Expiring/revocable tokens and token security tests | Planned |
 | GOS-006 | P0 | Participant RSVP and response history | API and UI tests, duplicate response behavior | Planned |
 | GOS-007 | P0 | Date/budget/activity polls | Poll creation, voting, closing and authorization tests | Planned |
@@ -22,7 +22,9 @@ Status: **planned** unless explicitly linked to implementation and passing check
 Verified evidence: [PR #2](https://github.com/olamide87/groupos/pull/2), commit `9e9062810be81bfeff38c98609b7e45ca7b85760`, and [successful GitHub Actions run](https://github.com/olamide87/groupos/actions/runs/43554713588). The Node.js 22 CI job passed `npm ci --no-audit --no-fund`, `npx tsc --noEmit -p apps/api/tsconfig.json`, `npm run test -w @groupos/api`, and `npm run build -w @groupos/web`.
 
 ## Next implementation task
-**GOS-003:** Review the verified authentication PR; request approval before merging. Resolve the documented security release blockers before release.
+**GOS-004:** Implement organizer-owned event CRUD on a feature branch. Resolve the documented security release blockers before release.
+
+GOS-003 integration (2026-11-15): approved squash merge `0728fe0f08e071e0a18c36fe98bbce583ac83cdf`. The synchronized development branch passed clean `npm ci`, Prisma validation/generation, fresh/upgrade/repeat migration and drift checks, API typecheck, 11 API tests, 27 database/authentication integration tests, and frontend production build (all exit 0). Dependency and production-readiness release blockers remain unresolved. Historical pre-integration review notes below record the earlier state.
 
 GOS-002 integration: approved squash merge `07177ca6e9b74ccfa3028e03acba0b71bd280969`. The synchronized development branch passed Prisma validation/generation, fresh migration and repeat-deploy/drift checks, API typecheck, 6 API tests, 9 database tests and the frontend production build, all exit 0. Post-merge CI passed. The security release blockers below remain open.
 
@@ -34,8 +36,11 @@ GOS-003 local verification (2026-11-14, Node.js 22.23.5): dependency installatio
 
 GOS-013 release blockers: `npm audit` exits 1 with 3 affected packages (2 high: Zod and PostCSS; 1 moderate: Next.js via PostCSS; 0 critical). Rechecked on 2026-11-14 for GOS-003: the same three findings remain, with no additional affected packages and no new dependencies introduced. These findings require dependency remediation before release. See [security evidence](database.md#dependency-security-evidence). Both the lockfile and installation resolve `deepmerge-ts` 8.0.0; the audit no longer reports the Prisma tooling advisory, and Prisma/migration checks pass with the override. Production recovery delivery/scheduling and trusted-proxy/edge-limit configuration also require separate owner setup and verification before release; no real emails or production infrastructure were used.
 
-## Agent operating constraints
 GOS-003 security review (2026-11-15): corrected recovery delivery of tokens that expired or were revoked after batch selection; added adversarial coverage for fixation, absolute expiry/auth-version revocation, normalized account limits and proxy-header spoofing, all auth POST CSRF checks, reset replay, and mocked delivery configuration. Local Node.js 22 verification passed installation, Prisma validation/generation, API typecheck, 11 API tests, 27 database/authentication tests, migration upgrade/redeploy/drift checks and frontend build (all exit 0). Disposable databases were removed and the test server stopped. Audit still exits 1 with the same Zod/PostCSS/Next.js findings (2 high, 1 moderate, 0 critical). See the [security review and remaining release concerns](authentication.md#security-review-2026-11-15); final-commit CI evidence is recorded on [PR #4](https://github.com/olamide87/groupos/pull/4). Merge approval remains required; GOS-004 starts only after integration.
+
+GOS-004 local verification (2026-11-15, Node.js 22.23.5): installation, Prisma validation/generation, API TypeScript checks, 11 API tests, 35 database/authentication/event tests (including 8 new event tests), fresh/upgrade/repeat migration and empty-drift checks, and frontend production build all exited 0. The [event API](events.md) supports creation, owner-scoped listing/viewing/updating and idempotent cancellation, with shared CSRF protection, transactional audit records, invitation revocation and concurrency tests. No schema or dependency changes were introduced. Final PR CI and human review remain required; GOS-004 is not marked complete. The unresolved Zod/PostCSS/Next.js advisories, production recovery/proxy configuration and browser UI verification concerns remain unchanged.
+
+## Agent operating constraints
 
 - GroupOS is standalone; do not introduce AgentBook imports, authentication dependencies, or required services.
 - Never push secrets, run destructive database migrations, contact real invitees, incur paid-service charges, merge to main, or deploy production without explicit approval.

@@ -36,6 +36,10 @@ web process environment; Next.js does not automatically load the root `.env`.
 The API and Prisma CLI load the root `.env`; explicit environment variables take
 precedence. No seed is needed. Integration tests create their own synthetic data.
 
+Authenticated organizers can create, list, view, update and cancel outings through
+`/api/v1/events`; see [event API contracts and examples of accepted fields](docs/events.md).
+The event-management screen remains future dashboard work.
+
 For **local** password recovery, request a reset in the account page, then run
 `npm run auth:deliver-recovery -w @groupos/api`. With no webhook configured and
 outside production, this writes a private JSON message under

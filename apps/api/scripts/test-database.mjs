@@ -55,7 +55,7 @@ try {
   // A second deploy must be a no-op, not a reset or a duplicate migration.
   run([prisma, 'migrate', 'deploy']);
   run([prisma, 'migrate', 'diff', '--from-url', url.toString(), '--to-schema-datamodel', 'prisma/schema.prisma', '--exit-code']);
-  run(['--import', 'tsx', '--test', '--test-concurrency=1', 'test/database.integration.ts', 'test/auth.integration.ts']);
+  run(['--import', 'tsx', '--test', '--test-concurrency=1', 'test/database.integration.ts', 'test/auth.integration.ts', 'test/events.integration.ts']);
 } finally {
   try {
     if (created) await admin.query(`DROP DATABASE "${name}" WITH (FORCE)`);
