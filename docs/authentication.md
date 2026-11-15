@@ -21,9 +21,9 @@ origin, with credentials. Responses are not cacheable. Bodies are limited to 8 K
 | `POST /api/v1/auth/reset` | `token`, `password`; consumes link once, changes password, revokes all sessions and other links; does not log in automatically |
 | `GET /api/v1/events/:eventId` | Read-only event details scoped by authenticated organizer ID; non-owned and missing events both return 404 |
 
-The event read is an authorization boundary, not the event CRUD deliverable.
-Caller-supplied organizer IDs are never trusted. Domain writes and participant
-invitation access remain GOS-004/GOS-005. Email ownership verification at signup,
+GOS-004 extends the event read into the [organizer event API](events.md), sharing
+the same authentication and CSRF safeguards. Caller-supplied organizer IDs are
+never trusted. Participant invitation access remains GOS-005. Email ownership verification at signup,
 MFA and breached-password screening are not implemented and must be considered
 in release readiness. Signup does not label an email address as verified.
 
