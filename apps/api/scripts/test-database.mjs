@@ -4,6 +4,9 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { config } from 'dotenv';
+import { cp, mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 config({ path: new URL('../../../.env', import.meta.url) });
 const require = createRequire(import.meta.url);
@@ -32,11 +35,27 @@ try {
     if (result.status !== 0) throw new Error(`Database verification exited ${result.status}`);
   };
   const prisma = require.resolve('prisma/build/index.js');
+  // Verify upgrading a populated GOS-002 database, not only deploying into an empty one.
+  const baseline = await mkdtemp(join(tmpdir(), 'groupos-migration-baseline-'));
+  try {
+    await cp(join(cwd, 'prisma/schema.prisma'), join(baseline, 'schema.prisma'));
+    await mkdir(join(baseline, 'migrations'));
+    await cp(join(cwd, 'prisma/migrations/migration_lock.toml'), join(baseline, 'migrations/migration_lock.toml'));
+    await cp(join(cwd, 'prisma/migrations/20261114000000_initial'), join(baseline, 'migrations/20261114000000_initial'), { recursive: true });
+    run([prisma, 'migrate', 'deploy', '--schema', join(baseline, 'schema.prisma')]);
+    const legacy = new pg.Client({ connectionString: url.toString() });
+    await legacy.connect();
+    try {
+      const owner = randomUUID();
+      await legacy.query('INSERT INTO "User" (id,email,name,"updatedAt") VALUES ($1,$2,$3,NOW())', [owner, `legacy-${name}@example.test`, 'Legacy organizer']);
+      await legacy.query('INSERT INTO "Event" (id,"organizerId",title,"updatedAt") VALUES ($1,$2,$3,NOW())', [randomUUID(), owner, 'Pre-auth event']);
+    } finally { await legacy.end(); }
+  } finally { await rm(baseline, { recursive: true, force: true }); }
   run([prisma, 'migrate', 'deploy']);
   // A second deploy must be a no-op, not a reset or a duplicate migration.
   run([prisma, 'migrate', 'deploy']);
   run([prisma, 'migrate', 'diff', '--from-url', url.toString(), '--to-schema-datamodel', 'prisma/schema.prisma', '--exit-code']);
-  run(['--import', 'tsx', '--test', 'test/database.integration.ts']);
+  run(['--import', 'tsx', '--test', '--test-concurrency=1', 'test/database.integration.ts', 'test/auth.integration.ts']);
 } finally {
   try {
     if (created) await admin.query(`DROP DATABASE "${name}" WITH (FORCE)`);
