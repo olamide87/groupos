@@ -23,14 +23,18 @@ async function fixture() {
 const rejectsCode = (promise: Promise<unknown>, code: string) => assert.rejects(promise,
   (error: unknown) => error instanceof Prisma.PrismaClientKnownRequestError && error.code === code);
 
-test('initial migration is applied once and every domain table exists', async () => {
+test('migration chain applies once, preserves pre-auth data and creates all domain tables', async () => {
   const rows = await db.$queryRaw<Array<{ migration_name: string; finished_at: Date | null }>>`
     SELECT migration_name, finished_at FROM "_prisma_migrations" WHERE rolled_back_at IS NULL`;
-  assert.equal(rows.length, 1);
-  assert.equal(rows[0].migration_name, '20261114000000_initial');
-  assert.ok(rows[0].finished_at);
+  assert.deepEqual(rows.map(row => row.migration_name).sort(), ['20261114000000_initial', '20261114010000_organizer_auth']);
+  assert.ok(rows.every(row => row.finished_at));
+  const legacy = await db.user.findFirstOrThrow({ where: { email: { startsWith: 'legacy-groupos_test_' } }, include: { events: true } });
+  assert.equal(legacy.passwordHash, null);
+  assert.equal(legacy.authVersion, 0);
+  assert.equal(legacy.events[0].title, 'Pre-auth event');
   for (const model of [db.user, db.event, db.participant, db.invitationToken, db.rsvp,
-    db.rsvpHistory, db.poll, db.pollOption, db.vote, db.recommendation, db.notificationConsent, db.auditEntry]) {
+    db.rsvpHistory, db.poll, db.pollOption, db.vote, db.recommendation, db.notificationConsent, db.auditEntry,
+    db.authSession, db.passwordReset, db.recoveryMessage, db.authRateLimit]) {
     assert.equal(typeof await (model.count as () => Promise<number>)(), 'number');
   }
 });

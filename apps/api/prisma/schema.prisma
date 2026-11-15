@@ -52,13 +52,65 @@ enum NotificationChannel {
 }
 
 model User {
-  id        String       @id @default(uuid()) @db.Uuid
-  email     String       @unique @db.VarChar(254)
-  name      String       @db.VarChar(120)
-  createdAt DateTime     @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime     @updatedAt @db.Timestamptz(3)
-  events    Event[]
-  audit     AuditEntry[]
+  id             String          @id @default(uuid()) @db.Uuid
+  email          String          @unique @db.VarChar(254)
+  name           String          @db.VarChar(120)
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(3)
+  events         Event[]
+  audit          AuditEntry[]
+  passwordHash   String?         @db.VarChar(256)
+  authVersion    Int             @default(0)
+  sessions       AuthSession[]
+  passwordResets PasswordReset[]
+}
+
+model AuthSession {
+  tokenHash   String   @id @db.VarChar(64)
+  userId      String   @db.Uuid
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authVersion Int
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  expiresAt   DateTime @db.Timestamptz(3)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordReset {
+  tokenHash String           @id @db.VarChar(64)
+  userId    String           @db.Uuid
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now()) @db.Timestamptz(3)
+  expiresAt DateTime         @db.Timestamptz(3)
+  usedAt    DateTime?        @db.Timestamptz(3)
+  message   RecoveryMessage?
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model RecoveryMessage {
+  id          String        @id @default(uuid()) @db.Uuid
+  tokenHash   String        @unique @db.VarChar(64)
+  token       PasswordReset @relation(fields: [tokenHash], references: [tokenHash], onDelete: Cascade)
+  ciphertext  String
+  iv          String        @db.VarChar(24)
+  tag         String        @db.VarChar(32)
+  attempts    Int           @default(0)
+  lockedUntil DateTime?     @db.Timestamptz(3)
+  sentAt      DateTime?     @db.Timestamptz(3)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@index([sentAt, lockedUntil, createdAt])
+}
+
+model AuthRateLimit {
+  keyHash   String   @id @db.VarChar(64)
+  count     Int      @default(1)
+  expiresAt DateTime @db.Timestamptz(3)
+
+  @@index([expiresAt])
 }
 
 model Event {

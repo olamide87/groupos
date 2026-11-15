@@ -4,7 +4,7 @@ GroupOS is independent of AgentBook. No AgentBook services, accounts, or credent
 
 ## MVP domains
 
-- **Identity:** organizer accounts and invite-link participant access (to implement)
+- **Identity:** organizer password authentication, revocable sessions and recovery outbox; invite-link participant access remains to implement
 - **Events:** organizer-owned outings, locations, schedules, and status (to implement)
 - **Participation:** invitations, RSVP, and response history (to implement)
 - **Decisions:** date, budget, and activity polls (to implement)
@@ -14,9 +14,9 @@ GroupOS is independent of AgentBook. No AgentBook services, accounts, or credent
 ## Initial code structure
 
 - `apps/api`: Express and TypeScript REST API; health endpoint implemented
-- `apps/web`: Next.js and React frontend; landing page implemented
+- `apps/web`: Next.js and React frontend; landing and organizer account pages
 - PostgreSQL/Prisma schema, versioned migrations and a managed API client provide the persistence foundation; see [database design](database.md).
-- Authentication, domain endpoints, background jobs and AI integration are planned but **not yet implemented**.
+- Organizer authentication and an explicit recovery delivery command are implemented; see [authentication](authentication.md). Event CRUD, participant endpoints, general background jobs and AI integration remain planned.
 
 ## Security principles
 

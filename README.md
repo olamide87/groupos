@@ -10,6 +10,8 @@ at 6.19.3. PostgreSQL 17 is used in Compose and CI.
 1. Copy `.env.example` to `.env` in the repository root (never commit `.env`).
 2. Set separate local `POSTGRES_PASSWORD` and `POSTGRES_TEST_PASSWORD` values.
    Replace `REPLACE_ME` in both URLs with the corresponding URL-encoded password.
+   Generate `AUTH_RECOVERY_KEY` with the command in `.env.example` and set
+   `AUTH_ORIGIN` to the exact browser origin (default `http://localhost:3000`).
 3. From the repository root, run:
 
 ```sh
@@ -26,8 +28,21 @@ In another terminal, `npm run dev:web` starts the frontend. The API listens on
 drains HTTP requests and closes the pool on SIGINT/SIGTERM. `/health` is a process
 liveness endpoint, not a continuous database readiness probe.
 
+Open `http://localhost:3000/account` to create an organizer account, sign in,
+sign out, or request a password reset. Browser requests use the web server's
+same-origin API rewrite. For a custom API host, set `GROUPOS_API_ORIGIN` in the
+web process environment; Next.js does not automatically load the root `.env`.
+
 The API and Prisma CLI load the root `.env`; explicit environment variables take
 precedence. No seed is needed. Integration tests create their own synthetic data.
+
+For **local** password recovery, request a reset in the account page, then run
+`npm run auth:deliver-recovery -w @groupos/api`. With no webhook configured and
+outside production, this writes a private JSON message under
+`.local/recovery-mailbox/`. Open its `resetUrl` in the browser. These files contain
+short-lived bearer links: do not share them or serve this directory over HTTP.
+The worker never prints links/passwords. Production requires an authenticated
+HTTPS delivery adapter and a scheduled worker; see [authentication](docs/authentication.md).
 
 ## Migrations
 
@@ -55,8 +70,9 @@ npm run build -w @groupos/web
 `TEST_DATABASE_URL` must point to the dedicated loopback server and database
 `groupos_test` (Compose port 5433); its role needs CREATEDB permission. The runner
 rejects remote hosts, other database names and query parameters. It creates a
-random `groupos_test_<uuid>` database, applies the migration twice to check
-idempotency, checks schema drift, runs relational integration tests, and drops
+random `groupos_test_<uuid>` database, applies the original migration, seeds a
+legacy organizer/event, upgrades through all migrations, retries deployment to check
+idempotency, checks schema drift, runs database/authentication integration tests, and drops
 only that invocation's database in `finally`. It never migrates or clears the
 database named in `TEST_DATABASE_URL` or the development `DATABASE_URL`. A killed
 process may leave its uniquely named test database; inspect it before manual
