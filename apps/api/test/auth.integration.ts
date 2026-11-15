@@ -83,7 +83,7 @@ test('login rejects unknown/wrong credentials uniformly, issues hashed sessions 
 test('production cookies use __Host prefix, Secure, HttpOnly and host-only Path=/', async () => {
   const c = await client({ ...settings, origin: 'https://app.example.test', secureCookies: true }); const user = await fixture();
   try {
-    const login = await c.request('/api/v1/auth/login', { email: user.email, password });
+    const login = await c.request('/api/v1/auth/login', { email: user.email, password }, undefined, { 'X-Forwarded-Proto': 'http' });
     const cookie = login.headers.get('set-cookie')!;
     assert.match(cookie, /^__Host-groupos_session=/); assert.match(cookie, /; Secure/);
     assert.match(cookie, /HttpOnly/); assert.match(cookie, /Path=\//); assert.doesNotMatch(cookie, /Domain=/i);
@@ -94,8 +94,8 @@ test('unsafe methods require exact Origin, JSON and custom header; hostile CORS 
   const c = await client();
   try {
     const rejectedHeaders: Record<string, string>[] = [{ Origin: 'https://evil.example.test' }, { Origin: '' }, { 'X-GroupOS-Request': '' }, { 'Content-Type': 'text/plain' }];
-    for (const headers of rejectedHeaders) {
-      const response = await c.request('/api/v1/auth/logout', {}, undefined, headers);
+    for (const route of ['signup', 'login', 'logout', 'forgot', 'reset']) for (const headers of rejectedHeaders) {
+      const response = await c.request(`/api/v1/auth/${route}`, {}, undefined, headers);
       assert.equal(response.status, 403);
     }
     const hostile = await c.request('/api/v1/auth/me', undefined, undefined, { Origin: 'https://evil.example.test' });
@@ -172,6 +172,7 @@ test('concurrent resets consume a link once, revoke every session and require th
     await c.request('/api/v1/auth/forgot', { email: user.email }); const { token } = await resetToken(user.id);
     const results = await Promise.all([c.request('/api/v1/auth/reset', { token, password: replacement }), c.request('/api/v1/auth/reset', { token, password: replacement })]);
     assert.deepEqual(results.map(r => r.status).sort(), [200, 400]);
+    assert.equal((await c.request('/api/v1/auth/reset', { token, password })).status, 400);
     assert.equal((await c.request('/api/v1/auth/me', undefined, first.cookie)).status, 401);
     assert.equal((await c.request('/api/v1/auth/me', undefined, second.cookie)).status, 401);
     assert.equal((await c.request('/api/v1/auth/login', { email: user.email, password })).status, 401);
@@ -258,5 +259,52 @@ test('concurrent delivery workers claim one message once', async () => {
     const send = async (mail: RecoveryMail) => { if (mail.email === user.email) delivered++; };
     await Promise.all([deliverRecoveryBatch(db, settings, send), deliverRecoveryBatch(db, settings, send)]);
     assert.equal(delivered, 1);
+  } finally { await c.close(); }
+});
+
+test('a planted session cannot fixate login; version revocation denies an otherwise unexpired session', async () => {
+  const c = await client(); const attacker = await fixture(); const victim = await fixture();
+  try {
+    const planted = await c.request('/api/v1/auth/login', { email: attacker.email, password });
+    const login = await c.request('/api/v1/auth/login', { email: victim.email, password }, planted.cookie);
+    assert.equal(login.status, 200); assert.notEqual(login.cookie, planted.cookie);
+    assert.equal((await c.request('/api/v1/auth/me', undefined, planted.cookie)).status, 401);
+    assert.equal((await c.request('/api/v1/auth/me', undefined, login.cookie)).body.user.id, victim.id);
+    const tokenHash = hashToken(login.cookie!.split('=')[1]);
+    const before = await db.authSession.findUniqueOrThrow({ where: { tokenHash } });
+    await c.request('/api/v1/auth/me', undefined, login.cookie);
+    assert.equal((await db.authSession.findUniqueOrThrow({ where: { tokenHash } })).expiresAt.getTime(), before.expiresAt.getTime());
+    await db.user.update({ where: { id: victim.id }, data: { authVersion: { increment: 1 } } });
+    assert.equal((await c.request('/api/v1/auth/me', undefined, login.cookie)).status, 401);
+  } finally { await c.close(); }
+});
+
+test('email case, whitespace, route casing and proxy headers cannot bypass account limits', async () => {
+  await db.authRateLimit.deleteMany();
+  const c = await client(settings, { ...defaultPolicies, login: { ip: 100, account: 1, windowMs: 3_600_000 } });
+  const user = await fixture();
+  try {
+    assert.equal((await c.request('/api/v1/auth/login', { email: user.email, password: replacement })).status, 401);
+    const response = await c.request('/API/V1/AUTH/LOGIN/', { email: ` ${user.email.toUpperCase()} `, password }, undefined,
+      { 'X-Forwarded-For': '192.0.2.45', 'X-Real-IP': '192.0.2.46', Forwarded: 'for=192.0.2.47;proto=https' });
+    assert.equal(response.status, 429); assert.equal(response.headers.get('set-cookie'), null);
+  } finally { await c.close(); }
+});
+
+test('delivery skips tokens expired or revoked after the batch was selected', async () => {
+  const c = await client(); const users = await Promise.all([fixture(), fixture(), fixture()]);
+  try {
+    // Isolate delivery fixtures from pending messages left by other adversarial tests.
+    await db.passwordReset.updateMany({ data: { usedAt: new Date() } });
+    for (const user of users) await c.request('/api/v1/auth/forgot', { email: user.email });
+    const delivered: string[] = [];
+    await deliverRecoveryBatch(db, settings, async mail => {
+      delivered.push(mail.email);
+      if (mail.email === users[0].email) {
+        await db.passwordReset.updateMany({ where: { userId: users[1].id }, data: { expiresAt: new Date(0) } });
+        await db.passwordReset.updateMany({ where: { userId: users[2].id }, data: { usedAt: new Date() } });
+      }
+    });
+    assert.deepEqual(delivered, [users[0].email]);
   } finally { await c.close(); }
 });

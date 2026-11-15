@@ -79,6 +79,10 @@ encrypted payloads after successful delivery. Failed attempts retain encrypted
 work for retry; provider errors and raw links are never logged. Expired sessions
 and expired/consumed reset records (including their outbox payloads) are removed
 by this worker. Other personal-data/audit retention policies remain GOS-013.
+Each message's claim rechecks token expiry and revocation, including changes while
+an earlier message in the batch was delivered. Revocation after a claim can still
+race with external delivery; the reset endpoint always revalidates the token, so
+delivery never grants validity to an expired or revoked link.
 
 In development without a webhook, messages go to the ignored private
 `.local/recovery-mailbox/` directory. POSIX permissions are owner-only; on Windows,
@@ -140,3 +144,25 @@ encrypted recovery, single-use/expired/replaced links, session invalidation,
 delivery retry/concurrency, login/reset races and persistent atomic rate limits.
 Migration tests preserve a pre-auth organizer/event while upgrading, redeploy
 without changes, and compare schema drift. Delivery tests use in-memory adapters.
+
+## Security review (2026-11-15)
+
+The final review covered session fixation/absolute expiry/version revocation,
+CSRF on all authentication mutations, production cookie attributes despite
+spoofed proxy headers, reset replay/concurrency, account normalization and
+persistent rate limits, organizer ownership, additive migration safety, and
+recovery configuration/data exposure. It found and corrected stale recovery
+delivery within a batch: each claim now checks that its token is still live.
+Webhook response bodies are cancelled on failures as well as successes.
+
+Additional adversarial tests cover planted cross-account sessions, non-sliding
+expiry, auth-version revocation, mixed-case/trailing-slash routes and normalized
+emails, forged proxy headers, post-selection token expiry/revocation, and mocked
+webhook authentication/idempotency/redirect protection. No provider is contacted.
+These tests supplement concurrent reset consumption and login/reset race tests.
+
+Production release remains blocked by the recorded dependency advisories and
+unverified delivery/scheduling and proxy/edge configuration. Generic auth responses
+do not claim perfect timing indistinguishability; fixed-window rate limits permit
+boundary bursts and can temporarily throttle a targeted account. Browser rendering
+remains unverified. None of these release gates is marked resolved by this review.

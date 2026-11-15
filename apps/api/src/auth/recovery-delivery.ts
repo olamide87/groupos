@@ -16,8 +16,11 @@ export async function deliverRecoveryBatch(db: PrismaClient, settings: AuthSetti
   let sent = 0;
   let failed = 0;
   for (const message of pending) {
+    // A prior delivery can take time; recheck validity when claiming each message.
+    const claimTime = new Date();
     const claimed = await db.recoveryMessage.updateMany({ where: { id: message.id, sentAt: null, attempts: { lt: 5 },
-      OR: [{ lockedUntil: null }, { lockedUntil: { lte: now } }] },
+      token: { usedAt: null, expiresAt: { gt: claimTime } },
+      OR: [{ lockedUntil: null }, { lockedUntil: { lte: claimTime } }] },
       data: { attempts: { increment: 1 }, lockedUntil: new Date(Date.now() + 60_000) } });
     if (!claimed.count) continue;
     try {
@@ -49,8 +52,8 @@ export function recoverySenderFromEnv(): RecoverySender {
       const response = await fetch(url, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10_000),
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}`, 'Idempotency-Key': id },
         body: JSON.stringify(message) });
-      if (!response.ok) throw new Error('Recovery delivery failed');
       await response.body?.cancel();
+      if (!response.ok) throw new Error('Recovery delivery failed');
     };
   }
   if (process.env.NODE_ENV === 'production') throw new Error('A recovery delivery webhook is required in production');

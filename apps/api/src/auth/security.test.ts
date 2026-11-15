@@ -46,8 +46,42 @@ test('production auth fails closed without HTTPS, encryption key and an authenti
     process.env.AUTH_RECOVERY_WEBHOOK_URL = 'http://example.test/mail';
     process.env.AUTH_RECOVERY_WEBHOOK_SECRET = 'x'.repeat(32); assert.throws(recoverySenderFromEnv);
     process.env.AUTH_RECOVERY_WEBHOOK_URL = 'https://example.test/mail';
+    process.env.AUTH_RECOVERY_WEBHOOK_SECRET = 'short'; assert.throws(recoverySenderFromEnv);
+    process.env.AUTH_RECOVERY_WEBHOOK_SECRET = 'x'.repeat(32);
+    process.env.AUTH_RECOVERY_WEBHOOK_URL = 'https://user:password@example.test/mail'; assert.throws(recoverySenderFromEnv);
+    process.env.AUTH_RECOVERY_WEBHOOK_URL = 'https://example.test/mail';
     assert.equal(typeof recoverySenderFromEnv(), 'function');
   } finally {
+    for (const name of names) {
+      if (saved[name] === undefined) delete process.env[name]; else process.env[name] = saved[name];
+    }
+  }
+});
+
+test('recovery webhook uses authentication, idempotency, timeout and redirect rejection without real network delivery', async () => {
+  const names = ['AUTH_RECOVERY_WEBHOOK_URL', 'AUTH_RECOVERY_WEBHOOK_SECRET'];
+  const saved = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  const originalFetch = globalThis.fetch;
+  try {
+    process.env.AUTH_RECOVERY_WEBHOOK_URL = 'https://example.test/mail';
+    process.env.AUTH_RECOVERY_WEBHOOK_SECRET = randomBytes(32).toString('hex');
+    let calls = 0;
+    globalThis.fetch = async (_url, init) => {
+      calls++;
+      assert.equal(init?.redirect, 'error'); assert.ok(init?.signal);
+      const headers = new Headers(init?.headers);
+      assert.equal(headers.get('Authorization'), `Bearer ${process.env.AUTH_RECOVERY_WEBHOOK_SECRET}`);
+      assert.equal(headers.get('Idempotency-Key'), 'test-message');
+      assert.equal(init?.method, 'POST');
+      return new Response('provider error containing private data', { status: 503 });
+    };
+    const send = recoverySenderFromEnv();
+    assert.equal(calls, 0);
+    await assert.rejects(send({ email: 'test@example.test', resetUrl: 'https://example.test/account#reset=synthetic', expiresAt: new Date().toISOString() }, 'test-message'),
+      { message: 'Recovery delivery failed' });
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
     for (const name of names) {
       if (saved[name] === undefined) delete process.env[name]; else process.env[name] = saved[name];
     }
