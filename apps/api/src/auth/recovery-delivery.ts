@@ -9,6 +9,7 @@ export type RecoverySender = (message: RecoveryMail, id: string) => Promise<void
 // A bounded batch with leases supports retries and concurrent workers. Delivery must be idempotent by ID.
 export async function deliverRecoveryBatch(db: PrismaClient, settings: AuthSettings, send: RecoverySender) {
   const now = new Date();
+  await db.participantSession.deleteMany({ where: { expiresAt: { lte: now } } });
   await db.authSession.deleteMany({ where: { expiresAt: { lte: now } } });
   await db.passwordReset.deleteMany({ where: { OR: [{ expiresAt: { lte: now } }, { usedAt: { not: null } }] } });
   const pending = await db.recoveryMessage.findMany({ where: { sentAt: null, attempts: { lt: 5 },

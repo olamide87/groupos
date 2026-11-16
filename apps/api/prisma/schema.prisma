@@ -162,10 +162,22 @@ model InvitationToken {
   tokenHash     String       @unique @db.VarChar(64)
   expiresAt     DateTime     @db.Timestamptz(3)
   revokedAt     DateTime?    @db.Timestamptz(3)
+  acceptedAt    DateTime?    @db.Timestamptz(3)
   createdAt     DateTime     @default(now()) @db.Timestamptz(3)
+  session       ParticipantSession?
 
   @@index([eventId, expiresAt])
   @@index([participantId, eventId])
+}
+
+model ParticipantSession {
+  tokenHash    String          @id @db.VarChar(64)
+  invitationId String         @unique @db.Uuid
+  invitation   InvitationToken @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  createdAt    DateTime        @default(now()) @db.Timestamptz(3)
+  expiresAt    DateTime        @db.Timestamptz(3)
+
+  @@index([expiresAt])
 }
 
 model Rsvp {
