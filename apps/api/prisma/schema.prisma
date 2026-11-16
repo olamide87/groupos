@@ -146,6 +146,7 @@ model Participant {
   invitations InvitationToken[]
   rsvp        Rsvp?
   rsvpHistory RsvpHistory[]
+  rsvpSubmissions RsvpSubmission[]
   votes       Vote[]
   consents    NotificationConsent[]
 
@@ -184,6 +185,7 @@ model Rsvp {
   participantId String       @id @db.Uuid
   participant   Participant  @relation(fields: [participantId], references: [id], onDelete: Restrict)
   response      RsvpResponse
+  version       Int          @default(0)
   createdAt     DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime     @updatedAt @db.Timestamptz(3)
 }
@@ -193,9 +195,22 @@ model RsvpHistory {
   participantId String       @db.Uuid
   participant   Participant  @relation(fields: [participantId], references: [id], onDelete: Restrict)
   response      RsvpResponse
+  revision      Int?
   recordedAt    DateTime     @default(now()) @db.Timestamptz(3)
 
   @@index([participantId, recordedAt])
+  @@unique([participantId, revision])
+}
+
+model RsvpSubmission {
+  participantId  String       @db.Uuid
+  participant    Participant  @relation(fields: [participantId], references: [id], onDelete: Restrict)
+  requestId      String       @db.Uuid
+  response       RsvpResponse
+  expectedVersion Int
+  createdAt      DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@id([participantId, requestId])
 }
 
 model Poll {

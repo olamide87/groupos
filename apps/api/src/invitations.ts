@@ -86,11 +86,12 @@ export function createOrganizerInvitationsRouter(options: AuthOptions = {}) {
 // Shared participant authorization boundary for future RSVP/poll handlers. Execute
 // participant operations inside this transaction, holding the event lock throughout.
 export async function withParticipant<T>(req: Request, db: PrismaClient, settings: AuthSettings,
-  operation: (tx: Prisma.TransactionClient, identity: { eventId: string; participantId: string }) => Promise<T>): Promise<T> {
+  operation: (tx: Prisma.TransactionClient, identity: { eventId: string; participantId: string }) => Promise<T>, write = false): Promise<T> {
   const token = participantToken(req, settings); const eventId = req.params.eventId.toLowerCase();
   if (!token || !uuid.test(eventId)) throw unavailable();
   return db.$transaction(async tx => {
-    await tx.$queryRaw`SELECT id FROM "Event" WHERE id = ${eventId}::uuid FOR SHARE`;
+    if (write) await tx.$queryRaw`SELECT id FROM "Event" WHERE id = ${eventId}::uuid FOR UPDATE`;
+    else await tx.$queryRaw`SELECT id FROM "Event" WHERE id = ${eventId}::uuid FOR SHARE`;
     const session = await tx.participantSession.findUnique({ where: { tokenHash: hashToken(token) }, include: { invitation: { include: { event: true } } } });
     const invitation = session?.invitation; const now = new Date();
     if (!session || session.expiresAt <= now || !invitation || invitation.eventId !== eventId || !invitation.participantId
