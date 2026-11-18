@@ -10,7 +10,7 @@ Status: **planned** unless explicitly linked to implementation and passing check
 | GOS-004 | P0 | Event CRUD with organizer authorization | [PR #5](https://github.com/olamide87/groupos/pull/5), [post-merge CI](https://github.com/olamide87/groupos/actions/runs/43758042982), [event API](events.md) | Integrated and verified |
 | GOS-005 | P0 | Secure participant invitations | [PR #6](https://github.com/olamide87/groupos/pull/6), [post-merge CI](https://github.com/olamide87/groupos/actions/runs/43809499661), [invitation contracts](invitations.md) | Integrated and verified |
 | GOS-006 | P0 | Participant RSVP and response history | [PR #7](https://github.com/olamide87/groupos/pull/7), [post-merge CI](https://github.com/olamide87/groupos/actions/runs/44228010822), [RSVP contracts](rsvps.md) | Integrated and verified |
-| GOS-007 | P0 | Date/budget/activity polls | [Poll contracts](polls.md); local verification below, PR CI pending | In review; merge approval required |
+| GOS-007 | P0 | Date/budget/activity polls | [PR #8](https://github.com/olamide87/groupos/pull/8), [passing CI](https://github.com/olamide87/groupos/actions/runs/44230339939), [poll contracts](polls.md) | In review; merge approval required |
 | GOS-008 | P0 | Organizer dashboard | End-to-end pending/confirmed participation view | Planned |
 | GOS-009 | P1 | Coordination Intelligence rules | Deterministic rule fixtures and explainability tests | Planned |
 | GOS-010 | P1 | AI suggestion generation with organizer approval | No-send-without-approval tests | Planned |
@@ -22,7 +22,7 @@ Status: **planned** unless explicitly linked to implementation and passing check
 Verified evidence: [PR #2](https://github.com/olamide87/groupos/pull/2), commit `9e9062810be81bfeff38c98609b7e45ca7b85760`, and [successful GitHub Actions run](https://github.com/olamide87/groupos/actions/runs/43554713588). The Node.js 22 CI job passed `npm ci --no-audit --no-fund`, `npx tsc --noEmit -p apps/api/tsconfig.json`, `npm run test -w @groupos/api`, and `npm run build -w @groupos/web`.
 
 ## Next implementation task
-**GOS-007:** Verify PR CI and review participant polls. Explicit approval is required before merge. Preserve security release blockers.
+**GOS-007:** Review PR #8. Explicit approval is required before merge. Preserve security release blockers.
 
 GOS-006 integration (2026-11-17): final review found no material security/concurrency issue. PR #7 targeted the development branch and final-head CI passed. Approved squash merge `39a71de8f1a977657f747eec73e664236a58f4d6` was verified and the local development branch synchronized. Post-merge installation, Prisma validation/generation, TypeScript, 11 API tests, 60 integration tests, fresh/upgrade/repeat migrations with empty drift, and frontend production build all exited 0. [Post-merge push CI passed](https://github.com/olamide87/groupos/actions/runs/44228010822). Existing dependency and production-readiness blockers remain unresolved. Earlier review notes below are historical.
 
@@ -61,6 +61,8 @@ GOS-007 local verification (2026-11-17, Node.js 22.23.5): clean `npm ci --no-aud
 GOS-007 security evidence: refreshed `npm audit` exits 1 with the same three affected packages: Zod high, PostCSS high and Next.js moderate; zero critical. No dependencies were added and the lockfile is unchanged. `deepmerge-ts` resolves to 8.0.0 under the existing override; `npm ls deepmerge-ts` reports ELSPROBLEMS against Prisma config's declared 7.1.5 range. This compatibility diagnostic is not an audit remediation claim; clean installation and Prisma validation/generation/migration tests passed. Dependency remediation, production recovery/proxy/edge configuration, retention policy and browser verification remain release blockers.
 
 ## Agent operating constraints
+
+GOS-007 PR verification: [CI passed](https://github.com/olamide87/groupos/actions/runs/44230339939) on implementation commit `e47e69133fdc85fd8b3ef39ae0b3011df180c5fb`, including clean `npm ci`, Prisma validation/generation, TypeScript, API tests, migrations/integration tests and frontend build. All disposable local databases were confirmed removed and the temporary PostgreSQL server stopped. Final-head evidence is maintained on [PR #8](https://github.com/olamide87/groupos/pull/8). Human review/merge approval and all recorded security/production-readiness blockers remain open; GOS-007 is not marked complete.
 
 - GroupOS is standalone; do not introduce AgentBook imports, authentication dependencies, or required services.
 - Never push secrets, run destructive database migrations, contact real invitees, incur paid-service charges, merge to main, or deploy production without explicit approval.
