@@ -53,6 +53,10 @@ try {
       await legacy.query('INSERT INTO "Participant" (id,"eventId","displayName","updatedAt") VALUES ($1,$2,$3,NOW())', [participantId, eventId, 'Legacy participant']);
       await legacy.query('INSERT INTO "Rsvp" ("participantId",response,"updatedAt") VALUES ($1,\'MAYBE\',NOW())', [participantId]);
       await legacy.query('INSERT INTO "RsvpHistory" (id,"participantId",response) VALUES ($1,$2,\'MAYBE\')', [randomUUID(), participantId]);
+      const pollId = randomUUID(); const optionId = randomUUID();
+      await legacy.query('INSERT INTO "Poll" (id,"eventId",question,kind,"updatedAt") VALUES ($1,$2,\'Legacy activity\',\'ACTIVITY\',NOW())', [pollId, eventId]);
+      await legacy.query('INSERT INTO "PollOption" (id,"pollId",label,position) VALUES ($1,$2,\'Legacy option\',0)', [optionId, pollId]);
+      await legacy.query('INSERT INTO "Vote" (id,"eventId","pollId","optionId","participantId","updatedAt") VALUES ($1,$2,$3,$4,$5,NOW())', [randomUUID(), eventId, pollId, optionId, participantId]);
       await legacy.query('INSERT INTO "InvitationToken" (id,"eventId","participantId","tokenHash","expiresAt") VALUES ($1,$2,$3,$4,NOW()+INTERVAL \'1 day\')',
         [randomUUID(), eventId, participantId, randomUUID().replaceAll('-', '') + randomUUID().replaceAll('-', '')]);
     } finally { await legacy.end(); }
@@ -61,7 +65,7 @@ try {
   // A second deploy must be a no-op, not a reset or a duplicate migration.
   run([prisma, 'migrate', 'deploy']);
   run([prisma, 'migrate', 'diff', '--from-url', url.toString(), '--to-schema-datamodel', 'prisma/schema.prisma', '--exit-code']);
-  run(['--import', 'tsx', '--test', '--test-concurrency=1', 'test/database.integration.ts', 'test/auth.integration.ts', 'test/events.integration.ts', 'test/invitations.integration.ts', 'test/rsvps.integration.ts']);
+  run(['--import', 'tsx', '--test', '--test-concurrency=1', 'test/database.integration.ts', 'test/auth.integration.ts', 'test/events.integration.ts', 'test/invitations.integration.ts', 'test/rsvps.integration.ts', 'test/polls.integration.ts']);
 } finally {
   try {
     if (created) await admin.query(`DROP DATABASE "${name}" WITH (FORCE)`);

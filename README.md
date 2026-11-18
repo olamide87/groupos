@@ -51,6 +51,11 @@ history. [RSVP API contracts](docs/rsvps.md) describe versioned updates, retry
 deduplication, and authorized organizer counts/history endpoints. Apply all
 committed migrations before running the updated API.
 
+Participants can also vote on date/time availability, budget and activity polls
+from the invitation page. [Poll contracts](docs/polls.md) document organizer
+creation/editing/closure APIs, typed options, vote retries, results and migration
+compatibility. No additional environment variables or services are required.
+
 For **local** password recovery, request a reset in the account page, then run
 `npm run auth:deliver-recovery -w @groupos/api`. With no webhook configured and
 outside production, this writes a private JSON message under

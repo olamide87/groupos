@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import RsvpPanel from './rsvp-panel';
+import PollsPanel from './polls-panel';
 
 type Details = { event: { title: string; description: string | null; location: string | null; startsAt: string | null; timeZone: string; status: string }; participant: { displayName: string } };
 export default function Invitation() {
@@ -47,6 +48,7 @@ export default function Invitation() {
       <p>{details.event.description}</p><p>{details.event.location ?? 'Location to be decided'}</p>
       <p>{details.event.startsAt ? new Date(details.event.startsAt).toLocaleString(undefined, { timeZone: details.event.timeZone }) : 'Date to be decided'} ({details.event.timeZone})</p>
       <RsvpPanel eventId={eventId} open={details.event.status === 'OPEN'} />
+      <PollsPanel eventId={eventId} />
     </section>}
     <p role="status" aria-live="polite">{message}</p>
     {token && <button disabled={busy} onClick={accept}>{busy ? 'Accepting…' : 'Accept invitation'}</button>}

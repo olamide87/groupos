@@ -5,6 +5,7 @@ import { AuthError, readAuthSettings } from './auth/security.js';
 import { createEventsRouter } from './events.js';
 import { createOrganizerInvitationsRouter, createParticipantRouter } from './invitations.js';
 import { createOrganizerRsvpRouter, createParticipantRsvpRouter } from './rsvps.js';
+import { createOrganizerPollRouter, createParticipantPollRouter } from './polls.js';
 
 export function createApp(options: AuthOptions = {}) {
   const app = express();
@@ -19,8 +20,8 @@ export function createApp(options: AuthOptions = {}) {
   app.use((_req, res, next) => { res.set('X-Content-Type-Options', 'nosniff'); next(); });
   app.use('/api/v1/auth', createAuthRouter(options));
 
-  app.use('/api/v1/events', createOrganizerRsvpRouter(options), createOrganizerInvitationsRouter(options), createEventsRouter(options));
-  app.use('/api/v1/participant', createParticipantRsvpRouter(options), createParticipantRouter(options));
+  app.use('/api/v1/events', createOrganizerPollRouter(options), createOrganizerRsvpRouter(options), createOrganizerInvitationsRouter(options), createEventsRouter(options));
+  app.use('/api/v1/participant', createParticipantPollRouter(options), createParticipantRsvpRouter(options), createParticipantRouter(options));
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', service: 'groupos-api' });

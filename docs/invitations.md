@@ -104,8 +104,8 @@ Integration tests use disposable PostgreSQL and synthetic participants only. The
 cover hash-only storage, secure cookies, expiry, replay, revocation, ownership,
 cross-event access, CSRF, persistent limits, cancellation, reissue and concurrent
 requests. The migration runner also verifies legacy invitation preservation,
-repeat deployment and schema drift. [RSVP/history](rsvps.md) is implemented in
-GOS-006; polls remain GOS-007.
+repeat deployment and schema drift. [RSVP/history](rsvps.md) and
+[participant polls](polls.md) use the same event-scoped session boundary.
 
 No new environment variables, dependencies, messaging provider or paid service is
 needed. Existing Zod/PostCSS/Next.js advisories and production recovery/proxy/browser

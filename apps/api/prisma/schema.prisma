@@ -29,6 +29,7 @@ enum PollKind {
 enum PollStatus {
   OPEN
   CLOSED
+  CANCELLED
 }
 
 enum RecommendationSource {
@@ -148,6 +149,9 @@ model Participant {
   rsvpHistory RsvpHistory[]
   rsvpSubmissions RsvpSubmission[]
   votes       Vote[]
+  ballots     PollBallot[]
+  pollSubmissions PollSubmission[]
+  audit AuditEntry[]
   consents    NotificationConsent[]
 
   @@unique([id, eventId])
@@ -220,11 +224,14 @@ model Poll {
   question  String       @db.VarChar(300)
   kind      PollKind
   status    PollStatus   @default(OPEN)
+  version   Int          @default(0)
   closesAt  DateTime?    @db.Timestamptz(3)
   createdAt DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt DateTime     @updatedAt @db.Timestamptz(3)
   options   PollOption[]
   votes     Vote[]
+  ballots   PollBallot[]
+  submissions PollSubmission[]
 
   @@unique([id, eventId])
   @@index([eventId, status])
@@ -236,6 +243,10 @@ model PollOption {
   poll      Poll     @relation(fields: [pollId], references: [id], onDelete: Restrict)
   label     String   @db.VarChar(300)
   position  Int
+  startsAt  DateTime? @db.Timestamptz(3)
+  endsAt    DateTime? @db.Timestamptz(3)
+  amountMinor Int?
+  currency  String? @db.VarChar(3)
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   votes     Vote[]
 
@@ -255,9 +266,36 @@ model Vote {
   createdAt     DateTime    @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime    @updatedAt @db.Timestamptz(3)
 
-  @@unique([pollId, participantId])
+  @@unique([pollId, participantId, optionId])
   @@index([participantId, eventId])
   @@index([optionId, pollId])
+}
+
+model PollBallot {
+  pollId String @db.Uuid
+  eventId String @db.Uuid
+  participantId String @db.Uuid
+  poll Poll @relation(fields: [pollId, eventId], references: [id, eventId], onDelete: Restrict)
+  participant Participant @relation(fields: [participantId, eventId], references: [id, eventId], onDelete: Restrict)
+  version Int @default(0)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  @@id([pollId, participantId])
+  @@index([participantId, eventId])
+}
+
+model PollSubmission {
+  pollId String @db.Uuid
+  eventId String @db.Uuid
+  participantId String @db.Uuid
+  requestId String @db.Uuid
+  poll Poll @relation(fields: [pollId, eventId], references: [id, eventId], onDelete: Restrict)
+  participant Participant @relation(fields: [participantId, eventId], references: [id, eventId], onDelete: Restrict)
+  payloadHash String @db.VarChar(64)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@id([pollId, participantId, requestId])
+  @@index([participantId, eventId])
 }
 
 model Recommendation {
@@ -293,6 +331,8 @@ model AuditEntry {
   event       Event?   @relation(fields: [eventId], references: [id], onDelete: Restrict)
   actorUserId String?  @db.Uuid
   actor       User?    @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+  actorParticipantId String? @db.Uuid
+  participant Participant? @relation(fields: [actorParticipantId, eventId], references: [id, eventId], onDelete: Restrict)
   action      String   @db.VarChar(100)
   entityType  String   @db.VarChar(80)
   entityId    String   @db.Uuid
@@ -300,5 +340,6 @@ model AuditEntry {
 
   @@index([eventId, createdAt])
   @@index([actorUserId, createdAt])
+  @@index([actorParticipantId, eventId])
   @@index([entityType, entityId])
 }

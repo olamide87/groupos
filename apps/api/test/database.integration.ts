@@ -26,7 +26,7 @@ const rejectsCode = (promise: Promise<unknown>, code: string) => assert.rejects(
 test('migration chain applies once, preserves pre-auth data and creates all domain tables', async () => {
   const rows = await db.$queryRaw<Array<{ migration_name: string; finished_at: Date | null }>>`
     SELECT migration_name, finished_at FROM "_prisma_migrations" WHERE rolled_back_at IS NULL`;
-  assert.deepEqual(rows.map(row => row.migration_name).sort(), ['20261114000000_initial', '20261114010000_organizer_auth', '20261115020000_participant_sessions', '20261115030000_rsvp_history']);
+  assert.deepEqual(rows.map(row => row.migration_name).sort(), ['20261114000000_initial', '20261114010000_organizer_auth', '20261115020000_participant_sessions', '20261115030000_rsvp_history', '20261117000000_participant_polls']);
   assert.ok(rows.every(row => row.finished_at));
   const legacy = await db.user.findFirstOrThrow({ where: { email: { startsWith: 'legacy-groupos_test_' } }, include: { events: true } });
   assert.equal(legacy.passwordHash, null);
@@ -38,10 +38,13 @@ test('migration chain applies once, preserves pre-auth data and creates all doma
   assert.equal(legacyRsvp.response, 'MAYBE'); assert.equal(legacyRsvp.version, 0);
   const legacyHistory = await db.rsvpHistory.findFirstOrThrow({ where: { participantId: legacyInvitation.participantId! } });
   assert.equal(legacyHistory.response, 'MAYBE'); assert.equal(legacyHistory.revision, null);
+  const legacyVote = await db.vote.findFirstOrThrow({ where: { eventId: legacy.events[0].id }, include: { option: true, poll: true } });
+  assert.equal(legacyVote.option.label, 'Legacy option'); assert.equal(legacyVote.poll.version, 0);
+  assert.equal(await db.pollBallot.count({ where: { pollId: legacyVote.pollId } }), 0);
   assert.equal(await db.participantSession.count({ where: { invitationId: legacyInvitation.id } }), 0);
   for (const model of [db.user, db.event, db.participant, db.invitationToken, db.rsvp,
     db.rsvpHistory, db.poll, db.pollOption, db.vote, db.recommendation, db.notificationConsent, db.auditEntry,
-    db.authSession, db.passwordReset, db.recoveryMessage, db.authRateLimit, db.participantSession, db.rsvpSubmission]) {
+    db.authSession, db.passwordReset, db.recoveryMessage, db.authRateLimit, db.participantSession, db.rsvpSubmission, db.pollBallot, db.pollSubmission]) {
     assert.equal(typeof await (model.count as () => Promise<number>)(), 'number');
   }
 });
@@ -105,7 +108,7 @@ test('accepts a vote and prevents duplicate votes, cross-event voters and option
   await db.vote.create({ data });
   await rejectsCode(db.vote.create({ data }), 'P2002');
   await rejectsCode(db.vote.create({ data: { ...data, participantId: other.participant.id } }), 'P2003');
-  await rejectsCode(db.vote.update({ where: { pollId_participantId: { pollId: f.poll.id, participantId: f.participant.id } }, data: { optionId: other.option.id } }), 'P2003');
+  await rejectsCode(db.vote.update({ where: { pollId_participantId_optionId: { pollId: f.poll.id, participantId: f.participant.id, optionId: f.option.id } }, data: { optionId: other.option.id } }), 'P2003');
   assert.equal(await db.vote.count({ where: { pollId: f.poll.id } }), 1);
 });
 
