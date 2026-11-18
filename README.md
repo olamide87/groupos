@@ -46,6 +46,11 @@ to view their event without an organizer account. No messages are sent. Use only
 synthetic participants during testing; links are returned once and cannot be
 recovered from storage. Apply the new migration before starting the updated API.
 
+The participant invitation page supports YES/NO/MAYBE responses and response
+history. [RSVP API contracts](docs/rsvps.md) describe versioned updates, retry
+deduplication, and authorized organizer counts/history endpoints. Apply all
+committed migrations before running the updated API.
+
 For **local** password recovery, request a reset in the account page, then run
 `npm run auth:deliver-recovery -w @groupos/api`. With no webhook configured and
 outside production, this writes a private JSON message under

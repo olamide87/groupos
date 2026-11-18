@@ -75,7 +75,8 @@ lock before changing invitation state. Reads hold a shared event lock and check 
 session, invitation and event in the same transaction. A request authorized before
 revocation may finish before revocation commits; after revocation/cancellation
 completes, subsequent reads fail. Future RSVP/poll handlers must perform their
-operations inside `withParticipant`, retaining this transaction boundary. Never
+operations inside `withParticipant`, retaining this transaction boundary (pass
+`true` for writes to acquire the exclusive event lock). Never
 trust participant/event IDs supplied in a request body.
 
 Cancellation revokes invitations through GOS-004. Session validation always
@@ -103,7 +104,8 @@ Integration tests use disposable PostgreSQL and synthetic participants only. The
 cover hash-only storage, secure cookies, expiry, replay, revocation, ownership,
 cross-event access, CSRF, persistent limits, cancellation, reissue and concurrent
 requests. The migration runner also verifies legacy invitation preservation,
-repeat deployment and schema drift. RSVP/polls remain GOS-006/GOS-007.
+repeat deployment and schema drift. [RSVP/history](rsvps.md) is implemented in
+GOS-006; polls remain GOS-007.
 
 No new environment variables, dependencies, messaging provider or paid service is
 needed. Existing Zod/PostCSS/Next.js advisories and production recovery/proxy/browser
