@@ -23,12 +23,11 @@ Reassess this override when upgrading Prisma.
   Its composite foreign key prevents linking a participant from another event.
 - `Rsvp` holds one current answer per participant. `RsvpHistory` is the response
   history. Future RSVP handlers must update both in one transaction, as tested.
-- `Poll` has a DATE, BUDGET or ACTIVITY kind. MVP options use display labels and
-  explicit ordering. Each participant has one current vote per poll. Composite
-  foreign keys enforce that voter and poll share an event and the chosen option
-  belongs to that poll. Future handlers enforce poll status/closing times in the
-  same transaction as writes. Structured date/currency options and multiple-choice
-  voting are intentionally deferred.
+- `Poll` has a DATE, BUDGET or ACTIVITY kind. GOS-007 adds typed date/currency
+  options, multi-selection availability, versioned ballots and retry ledgers.
+  Composite foreign keys enforce that voter and poll share an event and each
+  selected option belongs to that poll. See [poll contracts](polls.md) for lifecycle,
+  transaction locking, current unique keys and compatibility details.
 - `Recommendation` records RULE or AI provenance, rationale and review status.
   PENDING is the default. Approval does not authorize automatic sending; future
   review actions must record the reviewer in the audit trail.
