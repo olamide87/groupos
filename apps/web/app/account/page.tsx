@@ -37,7 +37,7 @@ export default function Account() {
         body: JSON.stringify({ ...values, ...(mode === 'reset' ? { token } : {}) }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? 'Unable to complete this request');
-      if (data.user) setUser(data.user);
+      if (data.user) { setUser(data.user); window.location.assign('/dashboard'); }
       setMessage(data.message ?? 'You are signed in.');
       form.reset();
       if (mode === 'signup' || mode === 'reset') { setMode('login'); setToken(''); }
@@ -62,13 +62,13 @@ export default function Account() {
     <Link href="/">GroupOS</Link>
     <h1>{user ? `Welcome, ${user.name}` : title}</h1>
     {checking ? <p>Checking your session…</p> : user ? <section>
-      <p>Signed in as {user.email}.</p><p>Your organizer account is ready. Outing management is coming next.</p>
+      <p>Signed in as {user.email}.</p><p><Link href="/dashboard">Open organizer dashboard</Link></p>
       <button disabled={busy} onClick={logout}>Sign out</button>
     </section> : <>
       <form key={mode} onSubmit={submit} style={{ display: 'grid', gap: 16 }}>
         {mode === 'signup' && <label>Name<input name="name" autoComplete="name" required maxLength={120} style={{ display: 'block', width: '100%', padding: 10, boxSizing: 'border-box' }} /></label>}
         {mode !== 'reset' && <label>Email<input name="email" type="email" autoComplete="email" required maxLength={254} style={{ display: 'block', width: '100%', padding: 10, boxSizing: 'border-box' }} /></label>}
-        {mode !== 'forgot' && <label>Password<input name="password" type="password" required minLength={15} maxLength={128} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} aria-describedby="password-hint" style={{ display: 'block', width: '100%', padding: 10, boxSizing: 'border-box' }} /><small id="password-hint">Use 15–128 characters. Spaces and password managers are welcome.</small></label>}
+        {mode !== 'forgot' && <><label>Password<input name="password" type="password" required minLength={15} maxLength={128} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} aria-describedby="password-hint" style={{ display: 'block', width: '100%', padding: 10, boxSizing: 'border-box' }} /></label><small id="password-hint">Use 15–128 characters. Spaces and password managers are welcome.</small></>}
         <button disabled={busy} type="submit" style={{ padding: 12 }}>{busy ? 'Please wait…' : button}</button>
       </form>
       <nav aria-label="Account options" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 24 }}>

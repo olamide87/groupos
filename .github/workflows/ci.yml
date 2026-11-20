@@ -58,3 +58,7 @@ jobs:
         run: npm run test:db -w @groupos/api
       - name: Build web
         run: npm run build -w @groupos/web
+      - name: Install Chromium for dashboard tests
+        run: npx playwright install --with-deps chromium
+      - name: Test organizer dashboard in Chromium
+        run: npm run test:e2e -w @groupos/web
