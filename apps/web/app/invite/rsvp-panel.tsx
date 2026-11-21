@@ -43,9 +43,9 @@ export default function RsvpPanel({ eventId, open }: { eventId: string; open: bo
     <h2 id="rsvp-title">Your RSVP</h2>
     <p>Current response: {current?.response ?? 'Not yet responded'}</p>
     {current && canRespond && <form onSubmit={event => { event.preventDefault(); save(); }}>
-      <label>Response <select value={choice} disabled={busy} onChange={event => { setChoice(event.target.value as Choice); pending.current = null; }}>
+      <label htmlFor="rsvp-response">Response</label> <select id="rsvp-response" value={choice} disabled={busy} onChange={event => { setChoice(event.target.value as Choice); pending.current = null; }}>
         <option value="YES">Yes</option><option value="NO">No</option><option value="MAYBE">Maybe</option>
-      </select></label> <button disabled={busy} type="submit">{busy ? 'Saving…' : 'Save RSVP'}</button>
+      </select> <button disabled={busy} type="submit">{busy ? 'Saving…' : 'Save RSVP'}</button>
     </form>}
     {!canRespond && <p>This event no longer accepts RSVP changes.</p>}
     <p role="status" aria-live="polite">{message}</p>

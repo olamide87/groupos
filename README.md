@@ -56,6 +56,11 @@ from the invitation page. [Poll contracts](docs/polls.md) document organizer
 creation/editing/closure APIs, typed options, vote retries, results and migration
 compatibility. No additional environment variables or services are required.
 
+Organizers can use `/dashboard` after signing in to manage events, invitations,
+RSVPs and polls. See [dashboard workflow and browser testing](docs/dashboard.md).
+After building, `npm run test:e2e -w @groupos/web` runs Playwright against a disposable
+local database (requires Chromium and free ports 3000/4100).
+
 For **local** password recovery, request a reset in the account page, then run
 `npm run auth:deliver-recovery -w @groupos/api`. With no webhook configured and
 outside production, this writes a private JSON message under
