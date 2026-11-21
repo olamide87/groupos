@@ -26,3 +26,8 @@ The organizer dashboard is a presentation layer over these APIs. Failed refreshe
 remove stale actionable data; authentication expiry clears private views. Invitation
 secrets remain transient and are invalidated against refreshed metadata. Browser
 tests use loopback-only services, synthetic accounts and disposable PostgreSQL.
+
+Dependency security and toolchain constraints are tracked in the
+[GOS-013 review](dependency-security.md). CI verifies the full dependency graph
+and npm audit in addition to functional checks; a green audit does not establish
+production operational readiness.

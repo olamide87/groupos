@@ -86,6 +86,9 @@ and [backlog](BACKLOG.md).
 
 ## Dependency security evidence
 
+The following is historical GOS-002 evidence. For the current audit, dependency
+paths, patched versions and compatibility decisions, see [GOS-013 dependency security](dependency-security.md).
+
 After the clean Node.js 22 install, `npm audit` exits 1: 3 affected packages,
 2 high, 1 moderate, 0 critical. This is not a clean security audit.
 

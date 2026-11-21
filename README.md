@@ -4,7 +4,11 @@ Standalone group coordination. No AgentBook services or credentials are required
 
 ## Local setup
 
-Use Node.js 22.12+ and Docker Compose v2. Prisma CLI and Client are pinned together
+Use Node.js 22.12+ (22.x), npm 10.9.8 and Docker Compose v2. Install the pinned npm
+with `npm install --global npm@10.9.8` before installing this workspace. The root
+engine check rejects unsupported npm versions: npm 11.13.0 can ignore workspace
+security overrides. See [dependency security evidence](docs/dependency-security.md).
+Prisma CLI and Client are pinned together
 at 6.19.3. PostgreSQL 17 is used in Compose and CI.
 
 1. Copy `.env.example` to `.env` in the repository root (never commit `.env`).

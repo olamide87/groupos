@@ -104,9 +104,11 @@ The computer-use browser host was unavailable during initial setup; Playwright
 provided the real-browser verification. Firefox/WebKit, physical mobile devices
 and assistive technologies were not tested.
 
-The current audit remains nonzero: six affected packages (five high, one moderate),
+The GOS-008 audit snapshot was nonzero: six affected packages (five high, one moderate),
 including the newly reported Effect advisory through Prisma tooling as well as
 Zod/PostCSS/Next.js. Production recovery/proxy/edge/retention work and the
-deepmerge-ts range diagnostic remain open. See the backlog for exact evidence.
+deepmerge-ts range diagnostic were recorded as blockers. Current dependency
+status is tracked in [the GOS-013 review](dependency-security.md).
 Browser automation does not replace release security remediation or verification
-of a real production deployment. GOS-008 remains subject to PR review/approval.
+of a real production deployment. GOS-008 was integrated in PR #9; production
+readiness remains separately gated.

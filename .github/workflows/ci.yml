@@ -44,8 +44,14 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
+      - name: Use verified npm version
+        run: npm install --global npm@10.9.8
       - name: Install workspace dependencies
         run: npm ci --no-audit --no-fund
+      - name: Verify dependency graph and security advisories
+        run: |
+          npm ls --all
+          npm audit
       - name: Validate Prisma schema
         run: npm run db:validate -w @groupos/api
       - name: Generate Prisma client
