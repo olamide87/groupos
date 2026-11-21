@@ -16,7 +16,7 @@ Status: **planned** unless explicitly linked to implementation and passing check
 | GOS-010 | P1 | AI suggestion generation with organizer approval | No-send-without-approval tests | Planned |
 | GOS-011 | P1 | Opt-in email reminders | Consent/opt-out and delivery integration tests | Planned |
 | GOS-012 | P1 | Shareable finalized itinerary | Participant-scoped access and E2E tests | Planned |
-| GOS-013 | P0 | Security and operational readiness | [Dependency review](dependency-security.md); operational and staging evidence still required | Dependencies verified locally; PR CI/review pending; overall item incomplete |
+| GOS-013 | P0 | Security and operational readiness | [Dependency review](dependency-security.md), [PR #10](https://github.com/olamide87/groupos/pull/10), [passing CI](https://github.com/olamide87/groupos/actions/runs/44866010093); operational and staging evidence still required | Dependencies verified in PR; awaiting review; overall item incomplete |
 | GOS-014 | P0 | Release acceptance | All DoD evidence linked, owner sign-off | Planned |
 
 Verified evidence: [PR #2](https://github.com/olamide87/groupos/pull/2), commit `9e9062810be81bfeff38c98609b7e45ca7b85760`, and [successful GitHub Actions run](https://github.com/olamide87/groupos/actions/runs/43554713588). The Node.js 22 CI job passed `npm ci --no-audit --no-fund`, `npx tsc --noEmit -p apps/api/tsconfig.json`, `npm run test -w @groupos/api`, and `npm run build -w @groupos/web`.
@@ -71,6 +71,8 @@ GOS-008 security audit (2026-11-19): `npm audit` exits 1 with **6 affected packa
 GOS-008 PR verification: [CI passed](https://github.com/olamide87/groupos/actions/runs/44669328817) on implementation commit `e240f71fbec9fa137c921e5f04e886f1b59d6afc`, including clean npm ci, Prisma validation/generation, API TypeScript, API/database tests, frontend production build and isolated Chromium E2E tests. Final-head checks are maintained on [PR #9](https://github.com/olamide87/groupos/pull/9), targeting `feat/standalone-foundation`. Functional acceptance is verified; integration requires explicit approval. Security and production-readiness blockers remain open, and nothing has been deployed.
 
 ## Agent operating constraints
+
+GOS-013 PR verification: implementation commit `f2d6e2826143b3109b71c9629473d5f1d7b4c606` passed [Linux CI](https://github.com/olamide87/groupos/actions/runs/44866010093), including clean installation, full dependency graph/audit, Prisma, TypeScript, API/database/migration tests, frontend build and Chromium E2E. Final-head checks are maintained on [PR #10](https://github.com/olamide87/groupos/pull/10). This supersedes the earlier CI-pending note; integration still requires explicit approval. All non-dependency production-readiness gates remain open.
 
 GOS-007 PR verification: [CI passed](https://github.com/olamide87/groupos/actions/runs/44230339939) on implementation commit `e47e69133fdc85fd8b3ef39ae0b3011df180c5fb`, including clean `npm ci`, Prisma validation/generation, TypeScript, API tests, migrations/integration tests and frontend build. All disposable local databases were confirmed removed and the temporary PostgreSQL server stopped. Final-head evidence is maintained on [PR #8](https://github.com/olamide87/groupos/pull/8). Human review/merge approval and all recorded security/production-readiness blockers remain open; GOS-007 is not marked complete.
 
