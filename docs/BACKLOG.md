@@ -11,18 +11,20 @@ Status: **planned** unless explicitly linked to implementation and passing check
 | GOS-005 | P0 | Secure participant invitations | [PR #6](https://github.com/olamide87/groupos/pull/6), [post-merge CI](https://github.com/olamide87/groupos/actions/runs/43809499661), [invitation contracts](invitations.md) | Integrated and verified |
 | GOS-006 | P0 | Participant RSVP and response history | [PR #7](https://github.com/olamide87/groupos/pull/7), [post-merge CI](https://github.com/olamide87/groupos/actions/runs/44228010822), [RSVP contracts](rsvps.md) | Integrated and verified |
 | GOS-007 | P0 | Date/budget/activity polls | [PR #8](https://github.com/olamide87/groupos/pull/8), [post-merge CI](https://github.com/olamide87/groupos/actions/runs/44235342664), [poll contracts](polls.md) | Integrated and verified |
-| GOS-008 | P0 | Organizer dashboard | [PR #9](https://github.com/olamide87/groupos/pull/9), [passing CI](https://github.com/olamide87/groupos/actions/runs/44669328817), [dashboard contracts](dashboard.md) | Verified in PR; awaiting approval; release blockers open |
+| GOS-008 | P0 | Organizer dashboard | [Merged PR #9](https://github.com/olamide87/groupos/pull/9), [final-head CI](https://github.com/olamide87/groupos/actions/runs/44669709111), [dashboard contracts](dashboard.md); squash `58243b1300bf7453d3d07d4e2d192730dd14ed64` | Integrated and verified; production release gates open |
 | GOS-009 | P1 | Coordination Intelligence rules | Deterministic rule fixtures and explainability tests | Planned |
 | GOS-010 | P1 | AI suggestion generation with organizer approval | No-send-without-approval tests | Planned |
 | GOS-011 | P1 | Opt-in email reminders | Consent/opt-out and delivery integration tests | Planned |
 | GOS-012 | P1 | Shareable finalized itinerary | Participant-scoped access and E2E tests | Planned |
-| GOS-013 | P0 | Security and operational readiness | Security review, docs, staging smoke tests | Planned |
+| GOS-013 | P0 | Security and operational readiness | [Dependency review](dependency-security.md); operational and staging evidence still required | Dependencies verified locally; PR CI/review pending; overall item incomplete |
 | GOS-014 | P0 | Release acceptance | All DoD evidence linked, owner sign-off | Planned |
 
 Verified evidence: [PR #2](https://github.com/olamide87/groupos/pull/2), commit `9e9062810be81bfeff38c98609b7e45ca7b85760`, and [successful GitHub Actions run](https://github.com/olamide87/groupos/actions/runs/43554713588). The Node.js 22 CI job passed `npm ci --no-audit --no-fund`, `npx tsc --noEmit -p apps/api/tsconfig.json`, `npm run test -w @groupos/api`, and `npm run build -w @groupos/web`.
 
 ## Next implementation task
-**GOS-008:** Review the verified dashboard PR. Explicit approval is required before merge. GOS-013 dependency remediation remains the highest-priority release blocker.
+**GOS-013:** Verify dependency remediation, then address the remaining production-readiness gates. GOS-008 was integrated by PR #9. Historical audit/review notes below describe their original snapshots; current dependency evidence is in [the GOS-013 review](dependency-security.md).
+
+GOS-013 dependency verification (2026-11-20): removed unused Zod, updated PostCSS to 8.5.23 and Effect to 3.22.1 through scoped overrides, retained patched deepmerge-ts 8.0.0, and pinned Node 22/npm 10.9.8 to avoid npm 11.13.0 workspace override resolution problems. Clean install, Prisma validation/generation, API TypeScript, migration upgrade/redeploy/empty drift, 11 API tests, 77 database tests, production frontend build and 7 Chromium tests passed. Full npm audit changed from six affected packages (five high, one moderate) to zero; npm ls changed from ELSPROBLEMS to exit 0. All disposable databases and owned test services were cleaned up. PR CI/review is pending. Dependency findings are resolved in the tested graph, not suppressed; production recovery/proxy/edge/retention, broader accessibility/browser assessment, staging and release sign-off remain open. GOS-013 and the MVP are not complete.
 
 GOS-007 integration (2026-11-18): confirmed approved head `46f07ecd461009ad4f5477f366e2642f87635dba`, development target and green CI before squash-merging PR #8 as `60bbe0f85d6be53420bc0c2193de984e97eeb5c5`. Local development was synchronized. Installation, Prisma validation/generation, TypeScript, 11 API tests, 77 integration tests, fresh/upgrade/repeat migrations with empty drift and frontend build all exited 0. [Post-merge push CI passed](https://github.com/olamide87/groupos/actions/runs/44235342664). Security advisories, production-readiness blockers and the deepmerge-ts compatibility diagnostic remain unresolved. Earlier review notes below are historical.
 
