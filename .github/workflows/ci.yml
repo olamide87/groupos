@@ -1,0 +1,70 @@
+name: GroupOS CI
+
+on:
+  push:
+    branches: [main, feat/standalone-foundation]
+  pull_request:
+    branches: [main, feat/standalone-foundation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: API tests, typecheck, and web build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: groupos_test
+          POSTGRES_PASSWORD: ci-disposable-only
+          POSTGRES_DB: groupos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U groupos_test -d groupos_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://groupos_test:ci-disposable-only@127.0.0.1:5432/groupos_test
+      TEST_DATABASE_URL: postgresql://groupos_test:ci-disposable-only@127.0.0.1:5432/groupos_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Use verified npm version
+        run: npm install --global npm@10.9.8
+      - name: Install workspace dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify dependency graph and security advisories
+        run: |
+          npm ls --all
+          npm audit
+      - name: Validate Prisma schema
+        run: npm run db:validate -w @groupos/api
+      - name: Generate Prisma client
+        run: npm run db:generate -w @groupos/api
+      - name: Typecheck API
+        run: npx tsc --noEmit -p apps/api/tsconfig.json
+      - name: Test API
+        run: npm run test -w @groupos/api
+      - name: Test database migrations and constraints
+        run: npm run test:db -w @groupos/api
+      - name: Build web
+        run: npm run build -w @groupos/web
+      - name: Install Chromium for dashboard tests
+        run: npx playwright install --with-deps chromium
+      - name: Test organizer dashboard in Chromium
+        run: npm run test:e2e -w @groupos/web

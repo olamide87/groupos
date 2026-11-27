@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: groupos
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set a local password in .env}
+      POSTGRES_DB: groupos
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U groupos -d groupos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  postgres-test:
+    image: postgres:17
+    profiles: [test]
+    environment:
+      POSTGRES_USER: groupos_test
+      POSTGRES_PASSWORD: ${POSTGRES_TEST_PASSWORD:?Set a local test password in .env}
+      POSTGRES_DB: groupos_test
+    ports:
+      - "127.0.0.1:5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U groupos_test -d groupos_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+volumes:
+  postgres_data:
