@@ -1,5 +1,10 @@
 # Organizer authentication (GOS-003)
 
+Current proxy trust configuration, rate-limit identities, lease fencing, queue
+health and scheduling requirements are in [deployment guidance](deployment.md).
+Local verification evidence and outstanding CI/infrastructure gates are recorded
+in that guide. Historical review notes below retain their dates.
+
 The account page at `/account` provides signup, login, logout and password
 recovery. The API uses opaque server-side sessions and a PostgreSQL-backed
 limiter; it does not depend on AgentBook, JWTs, an external identity provider,
@@ -121,18 +126,19 @@ low-entropy values is not anonymization. Default limits:
 | Recovery request | 15 | 5 | 1 hour |
 | Password reset | 20 | 10 per reset token | 15 minutes |
 
-429 responses include Retry-After. Forwarded IP headers are not trusted: behind
+429 responses include Retry-After. In direct mode forwarded IP headers are not trusted: behind
 Next.js or another proxy, per-IP limits conservatively apply to the API's direct
 peer. Before production, configure a reviewed trusted-proxy/network policy and
-edge limits for availability; do not blindly enable `trust proxy`. Account limits
+edge limits for availability using the explicit boundary in the deployment guide;
+Express `trust proxy` remains false. Account limits
 still apply independently. There are no permanent lockouts; targeted temporary
 throttling and fixed-window boundary bursts remain operational tradeoffs.
 
 Use TLS, isolated database credentials, secret management, clock synchronization,
-and monitoring before release. The existing Zod/PostCSS/Next.js advisories remain
-explicit [security-release blockers](database.md#dependency-security-evidence).
-This change does not use Zod for untrusted authentication input and does not mark
-the dependency audit green.
+and monitoring before release. Dependency remediation was integrated in PR #10;
+the full audit on 2026-11-26 reports zero vulnerabilities. See
+[dependency-security evidence](dependency-security.md). This does not establish
+production readiness or remove the operational release gates.
 
 ## Tests
 
@@ -146,6 +152,10 @@ Migration tests preserve a pre-auth organizer/event while upgrading, redeploy
 without changes, and compare schema drift. Delivery tests use in-memory adapters.
 
 ## Security review (2026-11-15)
+
+This section is historical; current dependency and browser verification evidence
+supersedes its original unverified/blocked statuses. Production operation remains
+unverified.
 
 The final review covered session fixation/absolute expiry/version revocation,
 CSRF on all authentication mutations, production cookie attributes despite

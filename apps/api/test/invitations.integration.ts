@@ -36,6 +36,33 @@ async function issue(f: Awaited<ReturnType<typeof fixture>>, body: object = { di
 const accept = (eventId: string, token: string, headers?: Record<string, string>) => request('POST', `/participant/events/${eventId}/accept`, undefined, { token }, headers);
 const view = (eventId: string, cookie?: string) => request('GET', `/participant/events/${eventId}`, cookie);
 
+test('trusted proxy invitation issue and acceptance limits share canonical identities and reject forged chains', async () => {
+  await db.authRateLimit.deleteMany();
+  const f = await fixture(); const g = await fixture();
+  const s = createApp({ database: () => db, settings: () => config,
+    proxyPolicy: { mode: 'trusted', chain: ['127.0.0.1'], host: 'invite.example.test' },
+    policies: { invitationIssue: { ip: 1, account: 100, windowMs: 3600000 }, invitationAccept: { ip: 1, account: 100, windowMs: 3600000 } },
+  }).listen(0, '127.0.0.1');
+  await new Promise<void>(resolve => s.once('listening', resolve));
+  const address = s.address(); assert.ok(address && typeof address !== 'string');
+  const send = async (path: string, body: object, ip: string, cookie?: string) => {
+    const response = await fetch(`http://127.0.0.1:${address.port}/api/v1${path}`, { method: 'POST',
+      headers: { Origin: config.origin, 'Content-Type': 'application/json', 'X-GroupOS-Request': '1',
+        'X-Forwarded-For': ip, 'X-Forwarded-Proto': 'https', 'X-Forwarded-Host': 'invite.example.test', ...(cookie ? { Cookie: cookie } : {}) },
+      body: JSON.stringify(body) });
+    await response.text(); return response.status;
+  };
+  try {
+    assert.equal(await send(`/events/${f.event.id}/invitations`, { displayName: 'Synthetic guest' }, '203.0.113.17', f.cookie), 201);
+    assert.equal(await send(`/events/${g.event.id}/invitations`, { displayName: 'Another guest' }, '::ffff:203.0.113.17', g.cookie), 429);
+    assert.equal(await send(`/events/${f.event.id}/invitations`, { displayName: 'Forged' }, '203.0.113.18, 203.0.113.17', f.cookie), 400);
+    const path = `/participant/events/${f.event.id}/accept`;
+    assert.equal(await send(path, { token: randomBytes(32).toString('hex') }, '2001:db8::17'), 404);
+    assert.equal(await send(path, { token: randomBytes(32).toString('hex') }, '2001:0db8:0:0:0:0:0:17'), 429);
+    assert.equal(await send(path, { token: randomBytes(32).toString('hex') }, '203.0.113.20, 2001:db8::17'), 400);
+  } finally { await new Promise<void>(resolve => s.close(() => resolve())); }
+});
+
 test('issuance returns a fragment link once and persists only token hashes; metadata omits secrets', async () => {
   const f = await fixture(); const i = await issue(f); const other = await issue(f);
   assert.match(i.token, /^[a-f0-9]{64}$/); assert.notEqual(i.token, other.token);

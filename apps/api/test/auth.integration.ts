@@ -4,7 +4,8 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import { createApp } from '../src/app.js';
 import { decryptRecovery, hashPassword, hashToken, type AuthSettings } from '../src/auth/security.js';
-import { deliverRecoveryBatch, type RecoveryMail } from '../src/auth/recovery-delivery.js';
+import { deliverRecoveryBatch, recoveryHealth, type RecoveryMail } from '../src/auth/recovery-delivery.js';
+import type { ProxyPolicy } from '../src/proxy.js';
 import { consumeRateLimit, defaultPolicies } from '../src/auth/rate-limit.js';
 
 const url = new URL(process.env.DATABASE_URL ?? '');
@@ -18,10 +19,109 @@ let storedHash: string;
 before(async () => { await db.$connect(); storedHash = await hashPassword(password); });
 after(() => db.$disconnect());
 const email = () => `${randomUUID()}@example.test`;
+
+test('edge hardening: trusted identity survives IPv6 aliases and spoofing cannot bypass limits or CSRF', async () => {
+  await db.authRateLimit.deleteMany();
+  const config = { ...settings, origin: 'https://app.example.test', secureCookies: true };
+  const c = await client(config, { ...defaultPolicies, login: { ip: 1, account: 100, windowMs: 3600000 } },
+    { mode: 'trusted', chain: ['127.0.0.1'], host: 'app.example.test' });
+  const headers = { 'X-Forwarded-For': '2001:db8::1', 'X-Forwarded-Proto': 'https', 'X-Forwarded-Host': 'app.example.test' };
+  try {
+    const user = await fixture();
+    const login = await c.request('/api/v1/auth/login', { email: user.email, password }, undefined, headers);
+    assert.equal(login.status, 200); assert.match(login.headers.get('set-cookie')!, /; Secure/);
+    assert.match(login.headers.get('set-cookie')!, /^__Host-groupos_session=/);
+    assert.equal((await c.request('/api/v1/auth/login', { email: email(), password }, undefined,
+      { ...headers, 'X-Forwarded-For': '2001:0db8:0:0:0:0:0:1' })).status, 429);
+    assert.equal((await c.request('/api/v1/auth/login', {}, undefined,
+      { ...headers, 'X-Forwarded-For': '203.0.113.2, 2001:db8::1' })).status, 400);
+    assert.equal((await c.request('/api/v1/auth/logout', {}, login.cookie,
+      { ...headers, Origin: 'https://evil.example.test' })).status, 403);
+    assert.equal((await c.request('/api/v1/auth/me', undefined, login.cookie, headers)).status, 200);
+    assert.equal((await c.request('/api/v1/auth/logout', {}, login.cookie, headers)).status, 204);
+  } finally { await c.close(); }
+});
 const fixture = () => db.user.create({ data: { email: email(), name: 'Organizer', passwordHash: storedHash } });
 
-async function client(config = settings, policies = Object.fromEntries(Object.entries(defaultPolicies).map(([key, value]) => [key, { ...value, ip: 1000, account: 1000 }]))) {
-  const server = createApp({ database: () => db, settings: () => config, policies }).listen(0, '127.0.0.1');
+test('edge hardening: stale delivery acknowledgement cannot overwrite a newer worker lease', async () => {
+  await db.passwordReset.updateMany({ data: { usedAt: new Date() } });
+  const c = await client(); const user = await fixture();
+  let releaseA!: () => void; let releaseB!: () => void;
+  const gateA = new Promise<void>(resolve => { releaseA = resolve; });
+  const gateB = new Promise<void>(resolve => { releaseB = resolve; });
+  let enteredA!: () => void; let enteredB!: () => void;
+  const readyA = new Promise<void>(resolve => { enteredA = resolve; });
+  const readyB = new Promise<void>(resolve => { enteredB = resolve; });
+  const ids: string[] = [];
+  let first: Promise<unknown> | undefined; let second: Promise<unknown> | undefined;
+  try {
+    await c.request('/api/v1/auth/forgot', { email: user.email });
+    const { message } = await resetToken(user.id);
+    first = deliverRecoveryBatch(db, settings, async (_mail, id) => { ids.push(id); enteredA(); await gateA; });
+    await readyA;
+    await db.recoveryMessage.update({ where: { id: message.id }, data: { lockedUntil: new Date(0) } });
+    second = deliverRecoveryBatch(db, settings, async (_mail, id) => { ids.push(id); enteredB(); await gateB; });
+    await readyB;
+    const claimed = await db.recoveryMessage.findUniqueOrThrow({ where: { id: message.id } });
+    releaseA(); assert.deepEqual(await first, { sent: 0, failed: 1 });
+    const after = await db.recoveryMessage.findUniqueOrThrow({ where: { id: message.id } });
+    assert.equal(after.attempts, 2); assert.equal(after.sentAt, null);
+    assert.equal(after.lockedUntil?.getTime(), claimed.lockedUntil?.getTime()); assert.ok(after.ciphertext);
+    releaseB(); assert.deepEqual(await second, { sent: 1, failed: 0 });
+    assert.deepEqual(ids, [message.id, message.id]);
+    assert.equal((await db.recoveryMessage.findUniqueOrThrow({ where: { id: message.id } })).ciphertext, '');
+  } finally { releaseA(); releaseB(); await Promise.allSettled([first, second]); await c.close(); }
+});
+
+test('edge hardening: delivery failures retry with stable keys, stop at five and report secret-free health', async () => {
+  await db.passwordReset.deleteMany();
+  const c = await client(); const user = await fixture();
+  try {
+    await c.request('/api/v1/auth/forgot', { email: user.email });
+    const { message, token } = await resetToken(user.id); const ids: string[] = [];
+    let forbiddenDeliveries = 0;
+    const forbiddenSend = async () => { forbiddenDeliveries++; };
+    for (let i = 0; i < 5; i++) {
+      const result = await deliverRecoveryBatch(db, settings, async (_mail, id) => { ids.push(id); throw new Error('private provider details'); });
+      assert.deepEqual(result, { sent: 0, failed: 1 });
+      assert.equal((await deliverRecoveryBatch(db, settings, forbiddenSend)).sent, 0);
+      assert.equal(forbiddenDeliveries, 0);
+      await db.recoveryMessage.update({ where: { id: message.id }, data: { lockedUntil: new Date(0) } });
+    }
+    await deliverRecoveryBatch(db, settings, forbiddenSend);
+    assert.equal(forbiddenDeliveries, 0);
+    assert.deepEqual(ids, Array(5).fill(message.id));
+    await db.recoveryMessage.update({ where: { id: message.id }, data: { createdAt: new Date(Date.now() - 360000) } });
+    const health = await recoveryHealth(db);
+    assert.equal(health.pending, 1); assert.equal(health.exhausted, 1); assert.equal(health.stuck, 1);
+    assert.ok(Object.values(health).every(value => typeof value === 'number'));
+    assert.ok(!JSON.stringify(health).includes(token)); assert.ok(!JSON.stringify(health).includes(user.email));
+    await db.passwordReset.update({ where: { tokenHash: message.tokenHash }, data: { expiresAt: new Date(0) } });
+    assert.equal((await recoveryHealth(db)).expired, 1);
+    await deliverRecoveryBatch(db, settings, forbiddenSend);
+    assert.equal(forbiddenDeliveries, 0);
+    assert.equal((await recoveryHealth(db)).pending, 0);
+  } finally { await c.close(); }
+});
+
+test('edge hardening: delivery after token expiry or revocation never restores reset validity', async () => {
+  const c = await client();
+  try {
+    for (const invalidation of ['expiry', 'revocation']) {
+      await db.passwordReset.deleteMany(); const user = await fixture();
+      await c.request('/api/v1/auth/forgot', { email: user.email }); const { message, token } = await resetToken(user.id);
+      await deliverRecoveryBatch(db, settings, async () => {
+        await db.passwordReset.update({ where: { tokenHash: message.tokenHash }, data:
+          invalidation === 'expiry' ? { expiresAt: new Date(0) } : { usedAt: new Date() } });
+      });
+      assert.equal((await c.request('/api/v1/auth/reset', { token, password: replacement })).status, 400);
+      assert.equal((await db.user.findUniqueOrThrow({ where: { id: user.id } })).passwordHash, storedHash);
+    }
+  } finally { await c.close(); }
+});
+
+async function client(config = settings, policies = Object.fromEntries(Object.entries(defaultPolicies).map(([key, value]) => [key, { ...value, ip: 1000, account: 1000 }])), proxyPolicy?: ProxyPolicy) {
+  const server = createApp({ database: () => db, settings: () => config, policies, proxyPolicy }).listen(0, '127.0.0.1');
   await new Promise<void>(resolve => server.once('listening', resolve));
   const address = server.address();
   assert.ok(address && typeof address !== 'string');

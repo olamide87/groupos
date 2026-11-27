@@ -42,7 +42,7 @@ precedence. No seed is needed. Integration tests create their own synthetic data
 
 Authenticated organizers can create, list, view, update and cancel outings through
 `/api/v1/events`; see [event API contracts and examples of accepted fields](docs/events.md).
-The event-management screen remains future dashboard work.
+The organizer dashboard provides the event-management screen.
 
 Organizers can issue/revoke participant links with the [invitation API](docs/invitations.md).
 The returned link opens `/invite`, where the participant explicitly accepts once
@@ -72,6 +72,8 @@ outside production, this writes a private JSON message under
 short-lived bearer links: do not share them or serve this directory over HTTP.
 The worker never prints links/passwords. Production requires an authenticated
 HTTPS delivery adapter and a scheduled worker; see [authentication](docs/authentication.md).
+For the explicit reverse-proxy boundary, production API routing, operator health
+checks and scheduler examples, see [deployment requirements](docs/deployment.md).
 
 ## Migrations
 

@@ -5,6 +5,7 @@ import { requireSameOrigin } from './auth/csrf.js';
 import { AuthError, hashToken, newToken, readAuthSettings, validToken, type AuthSettings } from './auth/security.js';
 import { consumeRateLimit } from './auth/rate-limit.js';
 import { getDatabase } from './database.js';
+import { clientIp } from './proxy.js';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const unavailable = () => new AuthError(404, 'Invitation or participant access is unavailable');
@@ -38,7 +39,7 @@ export function createOrganizerInvitationsRouter(options: AuthOptions = {}) {
       || (participantId === undefined ? typeof displayName !== 'string' || !displayName.trim() || displayName.length > 120
         : typeof participantId !== 'string' || !uuid.test(participantId) || displayName !== undefined)) throw new AuthError(400, 'Invalid invitation input');
     const db = database(); const organizerId = res.locals.organizer.id as string;
-    await consumeRateLimit(db, 'invitation.issue', req.ip ?? '(unknown)', organizerId,
+    await consumeRateLimit(db, 'invitation.issue', clientIp(req), organizerId,
       options.policies?.invitationIssue ?? { ip: 100, account: 60, windowMs: 3600000 });
     const raw = newToken(); const config = settings();
     const result = await db.$transaction(async tx => {
@@ -106,7 +107,7 @@ export function createParticipantRouter(options: AuthOptions = {}) {
   router.use(headers, requireSameOrigin(settings));
   router.post('/events/:eventId/accept', action(async (req, res) => {
     const db = database(); const token = req.body.token; const eventId = req.params.eventId.toLowerCase();
-    await consumeRateLimit(db, 'invitation.accept', req.ip ?? '(unknown)', validToken(token) ? hashToken(token) : '(invalid)',
+    await consumeRateLimit(db, 'invitation.accept', clientIp(req), validToken(token) ? hashToken(token) : '(invalid)',
       options.policies?.invitationAccept ?? { ip: 30, account: 10, windowMs: 900000 });
     if (Object.keys(req.body).some(k => k !== 'token') || !validToken(token) || !uuid.test(eventId)) throw unavailable();
     const rawSession = newToken(); const config = settings();
