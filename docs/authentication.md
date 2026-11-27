@@ -1,5 +1,10 @@
 # Organizer authentication (GOS-003)
 
+Current proxy trust configuration, rate-limit identities, lease fencing, queue
+health and scheduling requirements are in [deployment guidance](deployment.md).
+Local verification evidence and outstanding CI/infrastructure gates are recorded
+in that guide. Historical review notes below retain their dates.
+
 The account page at `/account` provides signup, login, logout and password
 recovery. The API uses opaque server-side sessions and a PostgreSQL-backed
 limiter; it does not depend on AgentBook, JWTs, an external identity provider,
@@ -84,6 +89,24 @@ an earlier message in the batch was delivered. Revocation after a claim can stil
 race with external delivery; the reset endpoint always revalidates the token, so
 delivery never grants validity to an expired or revoked link.
 
+`sentAt` means the configured sender accepted the message (the production adapter
+must return success only after durable acceptance), not inbox delivery or a usable
+reset link. A token expiring or being revoked while the sender runs does not block
+acknowledgement: the matching attempt/lease still records acceptance and clears
+the encrypted payload. Requiring token validity here would misclassify an already
+accepted send as failed without undoing external delivery. Invalid tokens cannot
+be claimed again and the reset endpoint rejects them independently.
+
+If another worker already removed the invalid token and its cascading outbox row,
+acknowledgement updates zero rows; the batch reports one failure, meaning acceptance
+could not be recorded locally, not proof of provider rejection. It never recreates
+the row or retries deleted work. A newer lease likewise fences out the stale worker.
+These transient outbox rows are not a durable delivery audit: cleanup removes their
+status, and aggregate worker results do not prove inbox delivery. Retention and
+provider reconciliation remain operational requirements. The atomic claim requires
+both the selected attempt count and a count below five; concurrent workers cannot
+turn a shared fourth-attempt snapshot into a sixth claim.
+
 In development without a webhook, messages go to the ignored private
 `.local/recovery-mailbox/` directory. POSIX permissions are owner-only; on Windows,
 restrict inherited ACLs to the developer account. Delete expired local mailbox
@@ -121,18 +144,19 @@ low-entropy values is not anonymization. Default limits:
 | Recovery request | 15 | 5 | 1 hour |
 | Password reset | 20 | 10 per reset token | 15 minutes |
 
-429 responses include Retry-After. Forwarded IP headers are not trusted: behind
+429 responses include Retry-After. In direct mode forwarded IP headers are not trusted: behind
 Next.js or another proxy, per-IP limits conservatively apply to the API's direct
 peer. Before production, configure a reviewed trusted-proxy/network policy and
-edge limits for availability; do not blindly enable `trust proxy`. Account limits
+edge limits for availability using the explicit boundary in the deployment guide;
+Express `trust proxy` remains false. Account limits
 still apply independently. There are no permanent lockouts; targeted temporary
 throttling and fixed-window boundary bursts remain operational tradeoffs.
 
 Use TLS, isolated database credentials, secret management, clock synchronization,
-and monitoring before release. The existing Zod/PostCSS/Next.js advisories remain
-explicit [security-release blockers](database.md#dependency-security-evidence).
-This change does not use Zod for untrusted authentication input and does not mark
-the dependency audit green.
+and monitoring before release. Dependency remediation was integrated in PR #10;
+the full audit on 2026-11-26 reports zero vulnerabilities. See
+[dependency-security evidence](dependency-security.md). This does not establish
+production readiness or remove the operational release gates.
 
 ## Tests
 
@@ -146,6 +170,10 @@ Migration tests preserve a pre-auth organizer/event while upgrading, redeploy
 without changes, and compare schema drift. Delivery tests use in-memory adapters.
 
 ## Security review (2026-11-15)
+
+This section is historical; current dependency and browser verification evidence
+supersedes its original unverified/blocked statuses. Production operation remains
+unverified.
 
 The final review covered session fixation/absolute expiry/version revocation,
 CSRF on all authentication mutations, production cookie attributes despite

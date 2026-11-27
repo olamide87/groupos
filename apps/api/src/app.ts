@@ -6,11 +6,13 @@ import { createEventsRouter } from './events.js';
 import { createOrganizerInvitationsRouter, createParticipantRouter } from './invitations.js';
 import { createOrganizerRsvpRouter, createParticipantRsvpRouter } from './rsvps.js';
 import { createOrganizerPollRouter, createParticipantPollRouter } from './polls.js';
+import { enforceProxyBoundary, type ProxyPolicy } from './proxy.js';
 
-export function createApp(options: AuthOptions = {}) {
+export function createApp(options: AuthOptions & { proxyPolicy?: ProxyPolicy } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', false);
+  app.use(enforceProxyBoundary(options.proxyPolicy ?? { mode: 'direct' }));
   app.use(cors({ origin: (origin, callback) => {
     if (!origin) return callback(null, false);
     try { callback(null, origin === (options.settings ?? readAuthSettings)().origin); }

@@ -6,6 +6,7 @@ import { AuthError, emailAddress, encryptRecovery, hashPassword, hashToken, newT
   readAuthSettings, validToken, verifyPassword, type AuthSettings } from './security.js';
 import { consumeRateLimit, defaultPolicies, type RatePolicy } from './rate-limit.js';
 import { requireSameOrigin } from './csrf.js';
+import { clientIp } from '../proxy.js';
 
 export interface AuthOptions {
   database?: () => PrismaClient;
@@ -55,10 +56,10 @@ export function createAuthRouter(options: AuthOptions = {}): Router {
         const db = database();
         const policy = policies[name];
         if (policy) {
-          // Validate size before hashing, but count invalid inputs too. Never trust forwarded IP headers.
+          // Only the validated network boundary supplies the limiter identity.
           const account = name === 'reset' && validToken(req.body.token) ? hashToken(req.body.token)
-            : typeof req.body.email === 'string' && req.body.email.length <= 254 ? req.body.email.trim().toLowerCase() : `(invalid:${req.ip})`;
-          await consumeRateLimit(db, name, req.ip ?? req.socket.remoteAddress ?? '(unknown)', account, policy);
+            : typeof req.body.email === 'string' && req.body.email.length <= 254 ? req.body.email.trim().toLowerCase() : `(invalid:${clientIp(req)})`;
+          await consumeRateLimit(db, name, clientIp(req), account, policy);
         }
         await handler(req, res, db, settings());
       })().catch(next);

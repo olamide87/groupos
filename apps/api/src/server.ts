@@ -1,5 +1,6 @@
 import { config } from 'dotenv';
-import { app } from './app.js';
+import { createApp } from './app.js';
+import { readProxyPolicy } from './proxy.js';
 import { connectDatabase, disconnectDatabase } from './database.js';
 import { readAuthSettings } from './auth/security.js';
 import { recoverySenderFromEnv } from './auth/recovery-delivery.js';
@@ -10,8 +11,9 @@ const port = Number(process.env.PORT ?? 4100);
 try {
   readAuthSettings();
   recoverySenderFromEnv();
+  const app = createApp({ proxyPolicy: readProxyPolicy() });
   await connectDatabase();
-  const server = app.listen(port, () => console.log(`GroupOS API listening on port ${port}`));
+  const server = app.listen(port, process.env.API_BIND_HOST ?? '127.0.0.1', () => console.log(`GroupOS API listening on port ${port}`));
   let stopping = false;
   const shutdown = () => {
     if (stopping) return;
