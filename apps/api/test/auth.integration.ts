@@ -104,20 +104,85 @@ test('edge hardening: delivery failures retry with stable keys, stop at five and
   } finally { await c.close(); }
 });
 
-test('edge hardening: delivery after token expiry or revocation never restores reset validity', async () => {
+test('edge hardening: accepted delivery acknowledges expired or revoked tokens without retry or restoring validity', async () => {
   const c = await client();
   try {
     for (const invalidation of ['expiry', 'revocation']) {
       await db.passwordReset.deleteMany(); const user = await fixture();
       await c.request('/api/v1/auth/forgot', { email: user.email }); const { message, token } = await resetToken(user.id);
-      await deliverRecoveryBatch(db, settings, async () => {
+      let deliveries = 0;
+      const result = await deliverRecoveryBatch(db, settings, async () => {
+        deliveries++;
         await db.passwordReset.update({ where: { tokenHash: message.tokenHash }, data:
           invalidation === 'expiry' ? { expiresAt: new Date(0) } : { usedAt: new Date() } });
       });
+      assert.deepEqual(result, { sent: 1, failed: 0 });
+      const acknowledged = await db.recoveryMessage.findUniqueOrThrow({ where: { id: message.id } });
+      assert.ok(acknowledged.sentAt); assert.equal(acknowledged.ciphertext, '');
+      assert.equal(acknowledged.lockedUntil, null); assert.equal(acknowledged.attempts, 1);
+      assert.equal((await c.request('/api/v1/auth/reset', { token, password: replacement })).status, 400);
+      assert.equal((await db.user.findUniqueOrThrow({ where: { id: user.id } })).passwordHash, storedHash);
+      assert.deepEqual(await deliverRecoveryBatch(db, settings, async () => { deliveries++; }), { sent: 0, failed: 0 });
+      assert.equal(deliveries, 1);
+      assert.equal(await db.recoveryMessage.findUnique({ where: { id: message.id } }), null);
+    }
+  } finally { await c.close(); }
+});
+
+test('edge hardening: cleanup during accepted delivery cannot recreate expired or revoked work', async () => {
+  const c = await client();
+  try {
+    for (const invalidation of ['expiry', 'revocation']) {
+      await db.passwordReset.deleteMany(); const user = await fixture();
+      await c.request('/api/v1/auth/forgot', { email: user.email });
+      const { message, token } = await resetToken(user.id);
+      let unexpectedDeliveries = 0;
+      let cleanupResult;
+      const result = await deliverRecoveryBatch(db, settings, async () => {
+        await db.passwordReset.update({ where: { tokenHash: message.tokenHash }, data:
+          invalidation === 'expiry' ? { expiresAt: new Date(0) } : { usedAt: new Date() } });
+        cleanupResult = await deliverRecoveryBatch(db, settings, async () => { unexpectedDeliveries++; });
+      });
+      assert.deepEqual(cleanupResult, { sent: 0, failed: 0 });
+      assert.deepEqual(result, { sent: 0, failed: 1 });
+      assert.equal(unexpectedDeliveries, 0);
+      assert.equal(await db.recoveryMessage.findUnique({ where: { id: message.id } }), null);
       assert.equal((await c.request('/api/v1/auth/reset', { token, password: replacement })).status, 400);
       assert.equal((await db.user.findUniqueOrThrow({ where: { id: user.id } })).passwordHash, storedHash);
     }
   } finally { await c.close(); }
+});
+
+test('edge hardening: concurrent fourth-attempt snapshots cannot claim a sixth attempt', async () => {
+  await db.passwordReset.deleteMany();
+  const c = await client(); const user = await fixture();
+  let selected = 0; let release!: () => void;
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  // Both workers must select the same eligible snapshot before either can claim.
+  const racing = db.$extends({ query: { recoveryMessage: { async findMany({ args, query }) {
+    const rows = await query(args);
+    if (++selected === 2) release();
+    await gate;
+    return rows;
+  } } } });
+  try {
+    await c.request('/api/v1/auth/forgot', { email: user.email });
+    const { message } = await resetToken(user.id);
+    await db.recoveryMessage.update({ where: { id: message.id }, data: { attempts: 4 } });
+    let deliveries = 0;
+    const send = async () => { deliveries++; throw new Error('Mock provider failure'); };
+    const results = await Promise.all([
+      deliverRecoveryBatch(racing as unknown as PrismaClient, settings, send),
+      deliverRecoveryBatch(racing as unknown as PrismaClient, settings, send),
+    ]);
+    assert.equal(deliveries, 1);
+    assert.equal(results.reduce((sum, result) => sum + result.failed, 0), 1);
+    const exhausted = await db.recoveryMessage.findUniqueOrThrow({ where: { id: message.id } });
+    assert.equal(exhausted.attempts, 5); assert.equal(exhausted.sentAt, null); assert.ok(exhausted.ciphertext);
+    await db.recoveryMessage.update({ where: { id: message.id }, data: { lockedUntil: new Date(0) } });
+    assert.deepEqual(await deliverRecoveryBatch(db, settings, send), { sent: 0, failed: 0 });
+    assert.equal(deliveries, 1);
+  } finally { release(); await c.close(); }
 });
 
 async function client(config = settings, policies = Object.fromEntries(Object.entries(defaultPolicies).map(([key, value]) => [key, { ...value, ip: 1000, account: 1000 }])), proxyPolicy?: ProxyPolicy) {

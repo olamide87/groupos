@@ -21,7 +21,7 @@ export async function deliverRecoveryBatch(db: PrismaClient, settings: AuthSetti
     // A prior delivery can take time; recheck validity when claiming each message.
     const claimTime = new Date();
     const leaseUntil = new Date(claimTime.getTime() + 60_000);
-    const claimed = await db.recoveryMessage.updateMany({ where: { id: message.id, sentAt: null, attempts: message.attempts,
+    const claimed = await db.recoveryMessage.updateMany({ where: { id: message.id, sentAt: null, attempts: { equals: message.attempts, lt: 5 },
       token: { usedAt: null, expiresAt: { gt: claimTime } },
       OR: [{ lockedUntil: null }, { lockedUntil: { lte: claimTime } }] },
       data: { attempts: { increment: 1 }, lockedUntil: leaseUntil } });
@@ -36,6 +36,9 @@ export async function deliverRecoveryBatch(db: PrismaClient, settings: AuthSetti
       const raw = decoded.resetUrl.slice(`${settings.origin}/account#reset=`.length);
       if (!validToken(raw) || hashToken(raw) !== message.tokenHash) throw new Error('Invalid recovery payload');
       await send(decoded as RecoveryMail, message.id);
+      // sentAt records sender acceptance, not inbox delivery or reset-token validity.
+      // Invalidating the token during send cannot undo acceptance; acknowledge it and
+      // erase the payload without retrying. Reset authorization rechecks validity.
       // Fence acknowledgements: a stale worker must not clear a newer worker's lease/payload.
       const acknowledged = await db.recoveryMessage.updateMany({ where: { id: message.id, sentAt: null,
         attempts: message.attempts + 1, lockedUntil: leaseUntil },

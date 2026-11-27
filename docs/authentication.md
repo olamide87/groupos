@@ -89,6 +89,24 @@ an earlier message in the batch was delivered. Revocation after a claim can stil
 race with external delivery; the reset endpoint always revalidates the token, so
 delivery never grants validity to an expired or revoked link.
 
+`sentAt` means the configured sender accepted the message (the production adapter
+must return success only after durable acceptance), not inbox delivery or a usable
+reset link. A token expiring or being revoked while the sender runs does not block
+acknowledgement: the matching attempt/lease still records acceptance and clears
+the encrypted payload. Requiring token validity here would misclassify an already
+accepted send as failed without undoing external delivery. Invalid tokens cannot
+be claimed again and the reset endpoint rejects them independently.
+
+If another worker already removed the invalid token and its cascading outbox row,
+acknowledgement updates zero rows; the batch reports one failure, meaning acceptance
+could not be recorded locally, not proof of provider rejection. It never recreates
+the row or retries deleted work. A newer lease likewise fences out the stale worker.
+These transient outbox rows are not a durable delivery audit: cleanup removes their
+status, and aggregate worker results do not prove inbox delivery. Retention and
+provider reconciliation remain operational requirements. The atomic claim requires
+both the selected attempt count and a count below five; concurrent workers cannot
+turn a shared fourth-attempt snapshot into a sixth claim.
+
 In development without a webhook, messages go to the ignored private
 `.local/recovery-mailbox/` directory. POSIX permissions are owner-only; on Windows,
 restrict inherited ACLs to the developer account. Delete expired local mailbox
